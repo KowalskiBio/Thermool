@@ -1,0 +1,110 @@
+@import "tailwindcss";
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+
+@theme {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@variant dark (&:where(.dark, .dark *));
+
+/* Semantic tokens: components use bg-surface, text-ink, border-line, ...
+   and never need dark: variants for colour. */
+:root {
+  color-scheme: light;
+  --base: #fafafa;
+  --surface: #ffffff;
+  --surface-2: #f3f3f4;
+  --line: #e6e6e8;
+  --line-strong: #d0d0d4;
+  --ink: #18181b;
+  --ink-muted: #5c5c66;
+  --ink-faint: #9a9aa3;
+  --accent: #1f4fd1;
+  --accent-solid: #1f4fd1;
+  --accent-solid-hover: #1a43b3;
+  --accent-subtle: #eaeffc;
+  --idt: #0f7a6c;
+  --idt-subtle: #e4f3f0;
+  --danger: #b42318;
+  --danger-subtle: #fdeceb;
+  --warning: #9a6700;
+  --success: #15803d;
+}
+
+.dark {
+  color-scheme: dark;
+  --base: #0d0e10;
+  --surface: #141518;
+  --surface-2: #1b1c20;
+  --line: #24252a;
+  --line-strong: #34353c;
+  --ink: #e8e8eb;
+  --ink-muted: #a0a0a9;
+  --ink-faint: #686872;
+  --accent: #82a4f8;
+  --accent-solid: #2f5fe6;
+  --accent-solid-hover: #3d6cf0;
+  --accent-subtle: #1b2540;
+  --idt: #4fc7b4;
+  --idt-subtle: #12302b;
+  --danger: #f97066;
+  --danger-subtle: #321c1a;
+  --warning: #d6a23a;
+  --success: #4cc26a;
+}
+
+@theme inline {
+  --color-base: var(--base);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-accent: var(--accent);
+  --color-accent-solid: var(--accent-solid);
+  --color-accent-solid-hover: var(--accent-solid-hover);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-idt: var(--idt);
+  --color-idt-subtle: var(--idt-subtle);
+  --color-danger: var(--danger);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+}
+
+html,
+body {
+  background: var(--base);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--accent-subtle);
+}
+
+/* Number inputs: no spinners, values are typed or pasted. */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}

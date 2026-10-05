@@ -1,0 +1,6 @@
+.omo/
+.uizze/
+.claude/settings.local.json
+target/
+node_modules/
+frontend/dist/
