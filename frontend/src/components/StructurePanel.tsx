@@ -118,10 +118,13 @@ function StrandSection({ section: s, model, dimer, view }: { section: Section; m
   const [rawOpen, setRawOpen] = useState(false);
   const candidates = s.structure[model].candidates;
   const idt = s.idt?.status === 'done' ? readStructures(s.idt.raw, s.seq1, s.seq2) : null;
-  const showIdt = s.idt !== undefined;
   const level = (dg: number | null) => LEVEL_TEXT[dgLevel(dg, dimer ? 'dimer' : 'hairpin')];
   const best = candidates[0];
   const idtBest = idt?.[0];
+
+  const idtState = s.idt?.status;
+  const idtAt = (i: number): IdtCell => (idtState === 'loading' ? 'loading' : idt ? (idt[i] ?? null) : undefined);
+  const raw = s.idt?.status === 'done' ? s.idt.raw : undefined;
 
   return (
     <div className="border-b border-line py-5 last:border-0">
@@ -133,74 +136,90 @@ function StrandSection({ section: s, model, dimer, view }: { section: Section; m
             {s.seq2 && s.seq2 !== s.seq1 && <> × {s.seq2}</>}
           </p>
         </div>
-        {/* Strider's most stable structure next to IDT's. */}
-        <dl className="grid grid-cols-[auto_auto_auto] gap-x-4 gap-y-0.5 text-[12px]">
-          <dt />
-          <dd className="text-right text-[11px] uppercase tracking-wider text-ink-faint">Strider</dd>
-          <dd className={`text-right text-[11px] uppercase tracking-wider text-idt ${showIdt ? '' : 'invisible'}`}>IDT</dd>
-          <dt className="text-ink-muted">Most stable ΔG</dt>
-          <dd className="text-right">
-            <Val v={fmt(best?.dg, 2)} unit="kcal/mol" className={level(best?.dg ?? null)} />
-          </dd>
-          <dd className={`text-right ${showIdt ? '' : 'invisible'}`}>{s.idt?.status === 'loading' ? <span className="text-ink-faint">…</span> : <Val v={fmt(idtBest?.dg, 2)} unit="kcal/mol" className={level(idtBest?.dg ?? null)} />}</dd>
-          <dt className="text-ink-muted">Tm</dt>
-          <dd className="text-right">
-            <Val v={fmtTm(best?.tm)} unit="°C" />
-          </dd>
-          <dd className={`text-right ${showIdt ? '' : 'invisible'}`}>{s.idt?.status === 'loading' ? <span className="text-ink-faint">…</span> : <Val v={fmtTm(idtBest?.tm)} unit="°C" />}</dd>
-        </dl>
+        {/* Strider's most stable structure next to IDT's, on one line. */}
+        <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 text-[14px]">
+          <SummaryPair label="Most stable ΔG" unit="kcal/mol" strider={fmt(best?.dg, 2)} striderClass={level(best?.dg ?? null)} idt={idtState === 'loading' ? 'loading' : idt ? fmt(idtBest?.dg, 2) : undefined} idtClass={level(idtBest?.dg ?? null)} />
+          <SummaryPair label="Tm" unit="°C" strider={fmtTm(best?.tm)} idt={idtState === 'loading' ? 'loading' : idt ? fmtTm(idtBest?.tm) : undefined} />
+        </div>
       </div>
 
       {candidates.length === 0 ? (
         <p className="text-[13px] italic text-ink-faint">Strider finds no stable structure.</p>
       ) : (
-        <div className={`grid gap-3 ${dimer ? 'grid-cols-[repeat(auto-fill,minmax(min(26rem,100%),1fr))]' : 'grid-cols-[repeat(auto-fill,minmax(min(15rem,100%),1fr))]'}`}>
+        <div className={`grid gap-3 ${dimer ? 'grid-cols-[repeat(auto-fill,minmax(min(26rem,100%),1fr))]' : 'grid-cols-[repeat(auto-fill,minmax(min(17rem,100%),1fr))]'}`}>
           {candidates.map((c, i) => (
-            <Card key={`${model}-${i}`} rank={i + 1} dg={c.dg} tm={c.tm} share={c.population_fraction} levelClass={level(c.dg)}>
+            <Card key={`${model}-${i}`} rank={i + 1} c={c} idt={idtAt(i)} level={level}>
               <Figure s={s} c={c} dimer={dimer} view={view} />
             </Card>
           ))}
         </div>
       )}
 
-      {idt && (
-        <div className="mt-4">
-          <div className="mb-2 flex items-baseline justify-between">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-idt">IDT OligoAnalyzer</span>
-            <button type="button" onClick={() => setRawOpen((o) => !o)} className="text-[12px] text-ink-faint underline decoration-line-strong underline-offset-2 hover:text-ink">
-              {rawOpen ? 'Hide raw response' : 'Raw response'}
-            </button>
-          </div>
-          {rawOpen && <pre className="mb-3 max-h-72 overflow-auto rounded-md border border-line bg-surface-2 p-3 font-mono text-[11px] text-ink-muted">{JSON.stringify((s.idt as { raw: unknown }).raw, null, 2)}</pre>}
-          {idt.length === 0 ? (
-            <Unreadable raw={(s.idt as { raw: unknown }).raw} />
+      {raw !== undefined && (
+        <div className="mt-3">
+          {idt && idt.length === 0 ? (
+            <Unreadable raw={raw} />
           ) : (
-            <div className={`grid gap-3 ${dimer ? 'grid-cols-[repeat(auto-fill,minmax(min(26rem,100%),1fr))]' : 'grid-cols-[repeat(auto-fill,minmax(min(15rem,100%),1fr))]'}`}>
-              {idt.slice(0, 5).map((d, i) => (
-                <Card key={i} rank={i + 1} dg={d.dg} tm={d.tm} levelClass={level(d.dg)} idt>
-                  <IdtFigure s={s} d={d} />
-                </Card>
-              ))}
+            <div className="flex justify-end">
+              <button type="button" onClick={() => setRawOpen((o) => !o)} className="text-[12px] text-ink-faint underline decoration-line-strong underline-offset-2 hover:text-ink">
+                {rawOpen ? 'Hide IDT raw response' : 'IDT raw response'}
+              </button>
             </div>
           )}
+          {rawOpen && <pre className="mt-2 max-h-72 overflow-auto rounded-md border border-line bg-surface-2 p-3 font-mono text-[11px] text-ink-muted">{JSON.stringify(raw, null, 2)}</pre>}
         </div>
       )}
     </div>
   );
 }
 
-function Card({ rank, dg, tm, share, levelClass, idt = false, children }: { rank: number; dg: number | null; tm: number | null; share?: number; levelClass: string; idt?: boolean; children: React.ReactNode }) {
+/** IDT's value for a card: absent (not asked), loading, or its structure of the same rank (null if IDT found fewer). */
+type IdtCell = IdtStructure | null | 'loading' | undefined;
+
+function SummaryPair({ label, unit, strider, striderClass = '', idt, idtClass = '' }: { label: string; unit: string; strider: string | null; striderClass?: string; idt: string | null | 'loading' | undefined; idtClass?: string }) {
   return (
-    <div className={`min-w-0 rounded-md border bg-surface p-3 ${idt ? 'border-idt/30' : 'border-line'}`}>
-      <div className="mb-2 flex items-baseline gap-3 text-[12px]">
-        <span className={`font-mono ${idt ? 'text-idt' : 'text-ink-faint'}`}>#{rank}</span>
-        <Val v={fmt(dg, 2)} unit="kcal/mol" className={`font-medium ${levelClass}`} />
-        <Val v={fmtTm(tm)} unit="°C" />
-        {share !== undefined && (
-          <span className="ml-auto font-mono tabular-nums text-ink-faint" title="Boltzmann share within the structures shown">
-            {(share * 100).toFixed(0)}%
-          </span>
-        )}
+    <span className="whitespace-nowrap">
+      <span className="mr-2 text-[12px] text-ink-muted">{label}</span>
+      <span className={`font-mono font-medium tabular-nums ${strider === null ? 'text-ink-faint' : striderClass}`}>{strider ?? 'n/a'}</span>
+      {idt !== undefined && (
+        <>
+          <span className="mx-2 text-line-strong">|</span>
+          <span className="mr-1 text-[11px] uppercase tracking-wider text-idt">IDT</span>
+          <span className={`font-mono font-medium tabular-nums ${idt === null || idt === 'loading' ? 'text-ink-faint' : idtClass}`}>{idt === 'loading' ? '…' : (idt ?? 'n/a')}</span>
+        </>
+      )}
+      <span className="ml-1 text-[12px] text-ink-faint">{unit}</span>
+    </span>
+  );
+}
+
+function Card({ rank, c, idt, level, children }: { rank: number; c: StructureCandidate; idt: IdtCell; level: (dg: number | null) => string; children: React.ReactNode }) {
+  const row = (who: 'Strider' | 'IDT', dg: string | null, dgClass: string, tm: string | null) => (
+    <>
+      <span className={`text-[11px] font-medium uppercase tracking-wider ${who === 'IDT' ? 'text-idt' : 'text-ink-faint'}`}>{who}</span>
+      <Val v={dg} unit="kcal/mol" className={`text-[16px] font-medium ${dgClass}`} />
+      <Val v={tm} unit="°C" className="text-[16px]" />
+    </>
+  );
+  return (
+    <div className="min-w-0 rounded-md border border-line bg-surface p-3">
+      <div className="mb-1 flex items-baseline justify-between text-[12px]">
+        <span className="font-mono text-ink-faint">#{rank}</span>
+        <span className="font-mono tabular-nums text-ink-faint" title="Boltzmann share within the structures shown">
+          {(c.population_fraction * 100).toFixed(0)}%
+        </span>
+      </div>
+      <div className="mb-2 grid grid-cols-[auto_auto_1fr] items-baseline gap-x-4 gap-y-0.5">
+        {row('Strider', fmt(c.dg, 2), level(c.dg), fmtTm(c.tm))}
+        {idt !== undefined &&
+          (idt === 'loading' ? (
+            <>
+              <span className="text-[11px] font-medium uppercase tracking-wider text-idt">IDT</span>
+              <span className="col-span-2 text-[14px] text-ink-faint">…</span>
+            </>
+          ) : (
+            row('IDT', fmt(idt?.dg, 2), level(idt?.dg ?? null), fmtTm(idt?.tm))
+          ))}
       </div>
       {children}
     </div>
@@ -214,14 +233,4 @@ function Figure({ s, c, dimer, view }: { s: Section; c: StructureCandidate; dime
   const seq2 = s.seq2!;
   const duplex = <DimerSvg seq1={s.seq1} seq2={seq2} structure={c.structure} />;
   return view === 'duplex' ? duplex : <StriderStructure sequence={s.seq1 + seq2} nick={s.seq1.length} strandNames={s.names} structure={c.structure} title={s.names ? 'Heterodimer' : 'Self-dimer'} fallback={duplex} />;
-}
-
-function IdtFigure({ s, d }: { s: Section; d: IdtStructure }) {
-  if (d.dotBracket) {
-    return <StriderStructure sequence={s.seq1} structure={d.dotBracket} title="IDT hairpin" fallback={null} />;
-  }
-  if (d.duplex) {
-    return <pre className="overflow-x-auto font-mono text-[12px] leading-[1.35] text-ink">{d.duplex.join('\n')}</pre>;
-  }
-  return null;
 }

@@ -46,7 +46,7 @@ export function Val({ v, unit, className = '' }: { v: string | null; unit?: stri
   return (
     <span className={`font-mono tabular-nums ${className}`}>
       {v}
-      {unit && <span className="ml-1 text-ink-faint">{unit}</span>}
+      {unit && <span className="ml-1 text-[12px] font-normal text-ink-faint">{unit}</span>}
     </span>
   );
 }

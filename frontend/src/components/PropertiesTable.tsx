@@ -49,8 +49,8 @@ export default function PropertiesTable({ strands, onIdt, idtConnected }: Props)
                         <span className="ml-1.5 text-[14px] font-normal text-ink-faint">{st.unit}</span>
                       </div>
                       {s.idt && (
-                        <div className="mt-1 font-mono text-[13px] tabular-nums text-idt">
-                          <span className="mr-1.5 text-[11px] uppercase tracking-wider">IDT</span>
+                        <div className="mt-1.5 font-mono text-[18px] font-medium tabular-nums text-idt">
+                          <span className="mr-2 text-[12px] font-normal uppercase tracking-wider">IDT</span>
                           {s.idt.status === 'loading' ? '…' : idtValue !== null ? `${idtValue} ${st.unit}` : <span className="text-ink-faint">n/a</span>}
                         </div>
                       )}
