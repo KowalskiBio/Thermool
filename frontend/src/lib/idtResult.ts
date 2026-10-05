@@ -59,6 +59,53 @@ export interface IdtStructure {
   dotBracket: string | null;
   /** Dimer: IDT's own three-line duplex (top strand, bonds, bottom strand). */
   duplex: string[] | null;
+  /** Base pairs IDT predicts, as "i-j" keys (see `pairKeys`), or null
+   * when the response carries no structure to read them from. */
+  pairs: Set<string> | null;
+}
+
+/** Pair keys comparable between IDT and Strider. Hairpin: "i-j" with
+ * i < j over the one strand. Dimer: "i-j" with i on strand 1 and j on
+ * strand 2 (0-based, 5' to 3'); for a self-dimer the two strands are the
+ * same sequence, so (i, j) and (j, i) are one pair and the key is sorted. */
+function key(i: number, j: number, selfDimer: boolean): string {
+  return selfDimer && j < i ? `${j}-${i}` : `${i}-${j}`;
+}
+
+/** Pairs in a dot-bracket. With `nick` (dimer, structure over seq1 +
+ * seq2), only pairs between the two strands are kept. */
+export function pairKeys(dotBracket: string, nick?: number, selfDimer = false): Set<string> {
+  const out = new Set<string>();
+  const stack: number[] = [];
+  for (let k = 0; k < dotBracket.length; k++) {
+    if (dotBracket[k] === '(') stack.push(k);
+    else if (dotBracket[k] === ')') {
+      const a = stack.pop();
+      if (a === undefined) continue;
+      if (nick === undefined) out.add(`${a}-${k}`);
+      else if (a < nick && k >= nick) out.add(key(a, k - nick, selfDimer));
+    }
+  }
+  return out;
+}
+
+/** Pairs from IDT's dimer layout: column c of the bond line pairs top
+ * strand base c - TopLinePadding with the bottom strand (seq2 written
+ * 3' to 5') base c - BottomLinePadding. */
+function dimerPairs(o: Obj, len1: number, len2: number, selfDimer: boolean): Set<string> | null {
+  const bonds = field(o, ['Bonds']);
+  if (!Array.isArray(bonds) || bonds.length === 0) return null;
+  const pad = (k: string) => Math.max(0, Number(field(o, [k])) || 0);
+  const [top, bottom, bond] = [pad('TopLinePadding'), pad('BottomLinePadding'), pad('BondLinePadding')];
+  const out = new Set<string>();
+  bonds.forEach((b, k) => {
+    if (!(Number(b) > 0)) return;
+    const c = bond + k;
+    const i = c - top;
+    const j = len2 - 1 - (c - bottom);
+    if (i >= 0 && i < len1 && j >= 0 && j < len2) out.add(key(i, j, selfDimer));
+  });
+  return out.size > 0 ? out : null;
 }
 
 const hasValues = (o: Obj) => num(o, DG, -200, 50) !== null || num(o, TM, -100, 200) !== null || Array.isArray(field(o, ['Bonds']));
@@ -92,13 +139,42 @@ function duplexOf(o: Obj, top: string, bottom: string): string[] | null {
  * stable first. `partner` is the second strand for a dimer. */
 export function readStructures(raw: unknown, sequence: string, partner?: string): IdtStructure[] {
   const dimer = partner !== undefined;
+  const selfDimer = partner === sequence;
   return structureItems(raw)
-    .map((o) => ({
-      dg: num(o, DG, -200, 50),
-      tm: num(o, TM, -100, 200),
-      dotBracket: dimer ? null : dotBracketOf(o, sequence.length),
-      duplex: dimer ? duplexOf(o, sequence, partner) : null,
-    }))
+    .map((o) => {
+      const dotBracket = dimer ? null : dotBracketOf(o, sequence.length);
+      return {
+        dg: num(o, DG, -200, 50),
+        tm: num(o, TM, -100, 200),
+        dotBracket,
+        duplex: dimer ? duplexOf(o, sequence, partner) : null,
+        pairs: dimer ? dimerPairs(o, sequence.length, partner.length, selfDimer) : dotBracket ? pairKeys(dotBracket) : null,
+      };
+    })
     .filter((s) => s.dg !== null || s.tm !== null || s.duplex || s.dotBracket)
     .sort((a, b) => (a.dg ?? Infinity) - (b.dg ?? Infinity));
+}
+
+export interface IdtMatch {
+  /** Index of the Strider candidate IDT's structure is shown on. */
+  index: number;
+  /** How it was placed: same fold (shared base pairs), a fold Strider's
+   * list doesn't contain (no shared pairs, shown on #1), or IDT gave no
+   * structure to compare (shown on #1). */
+  basis: 'pairs' | 'no-overlap' | 'no-structure';
+}
+
+/** Which of Strider's structures IDT's one structure corresponds to:
+ * the candidate sharing the most base pairs with it (Jaccard overlap). */
+export function matchIdt(idt: IdtStructure, striderStructures: string[], nick?: number, selfDimer = false): IdtMatch {
+  if (!idt.pairs || striderStructures.length === 0) return { index: 0, basis: 'no-structure' };
+  let best = { index: 0, score: 0 };
+  striderStructures.forEach((db, index) => {
+    const mine = pairKeys(db, nick, selfDimer);
+    let shared = 0;
+    for (const k of idt.pairs!) if (mine.has(k)) shared++;
+    const score = shared / (mine.size + idt.pairs!.size - shared || 1);
+    if (score > best.score) best = { index, score };
+  });
+  return best.score > 0 ? { index: best.index, basis: 'pairs' } : { index: 0, basis: 'no-overlap' };
 }

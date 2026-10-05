@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { AnalyzeResponse, DualStructure, IdtKind, StructureCandidate } from '../lib/api';
 import { dgLevel, fmt, fmtTm, LEVEL_TEXT } from '../lib/format';
-import { readStructures, type IdtStructure } from '../lib/idtResult';
+import { matchIdt, readStructures, type IdtStructure } from '../lib/idtResult';
 import DimerSvg from './DimerSvg';
 import IdtButton, { IdtErrors, Unreadable, combine, type IdtEntry } from './IdtButton';
 import StriderStructure from './StriderStructure';
@@ -123,7 +123,16 @@ function StrandSection({ section: s, model, dimer, view }: { section: Section; m
   const idtBest = idt?.[0];
 
   const idtState = s.idt?.status;
-  const idtAt = (i: number): IdtCell => (idtState === 'loading' ? 'loading' : idt ? (idt[i] ?? null) : undefined);
+  // IDT reports one structure; place it on the Strider structure it matches.
+  const match = idtBest ? matchIdt(idtBest, candidates.map((c) => c.structure), s.seq2 !== undefined ? s.seq1.length : undefined, s.seq2 === s.seq1) : null;
+  const idtAt = (i: number): IdtCell => {
+    if (idtState === 'loading') return i === 0 ? 'loading' : undefined;
+    if (!idt) return undefined;
+    if (!idtBest) return i === 0 ? null : undefined;
+    return match?.index === i ? idtBest : undefined;
+  };
+  const idtNote = (i: number) =>
+    match?.index !== i ? undefined : match.basis === 'no-overlap' ? 'IDT’s fold is not among these five' : match.basis === 'no-structure' ? 'IDT sent no structure to match; shown on #1' : undefined;
   const raw = s.idt?.status === 'done' ? s.idt.raw : undefined;
 
   return (
@@ -148,7 +157,7 @@ function StrandSection({ section: s, model, dimer, view }: { section: Section; m
       ) : (
         <div className={`grid gap-3 ${dimer ? 'grid-cols-[repeat(auto-fill,minmax(min(26rem,100%),1fr))]' : 'grid-cols-[repeat(auto-fill,minmax(min(17rem,100%),1fr))]'}`}>
           {candidates.map((c, i) => (
-            <Card key={`${model}-${i}`} rank={i + 1} c={c} idt={idtAt(i)} level={level}>
+            <Card key={`${model}-${i}`} rank={i + 1} c={c} idt={idtAt(i)} idtNote={idtNote(i)} level={level}>
               <Figure s={s} c={c} dimer={dimer} view={view} />
             </Card>
           ))}
@@ -193,7 +202,7 @@ function SummaryPair({ label, unit, strider, striderClass = '', idt, idtClass = 
   );
 }
 
-function Card({ rank, c, idt, level, children }: { rank: number; c: StructureCandidate; idt: IdtCell; level: (dg: number | null) => string; children: React.ReactNode }) {
+function Card({ rank, c, idt, idtNote, level, children }: { rank: number; c: StructureCandidate; idt: IdtCell; idtNote?: string; level: (dg: number | null) => string; children: React.ReactNode }) {
   const row = (who: 'Strider' | 'IDT', dg: string | null, dgClass: string, tm: string | null) => (
     <>
       <span className={`text-[11px] font-medium uppercase tracking-wider ${who === 'IDT' ? 'text-idt' : 'text-ink-faint'}`}>{who}</span>
@@ -220,6 +229,7 @@ function Card({ rank, c, idt, level, children }: { rank: number; c: StructureCan
           ) : (
             row('IDT', fmt(idt?.dg, 2), level(idt?.dg ?? null), fmtTm(idt?.tm))
           ))}
+        {idtNote && <span className="col-span-3 text-[11px] text-ink-faint">{idtNote}</span>}
       </div>
       {children}
     </div>
