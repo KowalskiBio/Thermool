@@ -76,8 +76,11 @@ export interface AnalyzeResponse {
   partner_structures: FullStructureAnalysis | null;
 }
 
-export function analyze(sequence: string, partner: string | null, conditions: Conditions, signal?: AbortSignal) {
-  return postJson<AnalyzeResponse>('/api/analyze', { sequence, partner, conditions }, signal);
+/** Nearest-neighbour parameters for hairpin/dimer folding and scoring. */
+export type Engine = 'mathews' | 'santalucia';
+
+export function analyze(sequence: string, partner: string | null, conditions: Conditions, engine: Engine, signal?: AbortSignal) {
+  return postJson<AnalyzeResponse>('/api/analyze', { sequence, partner, conditions, engine }, signal);
 }
 
 // IDT (`src/idt.rs`).

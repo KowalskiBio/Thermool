@@ -3,7 +3,8 @@
 //! self-dimer and heterodimer structures in both of Strider's models.
 
 use axum::Json;
-use engine::structure_variant::{analyze_structure, FullStructureAnalysis};
+use engine::structure_variant::{analyze_structure_in, FullStructureAnalysis};
+use thermo_core::mathews2004::ParamSetId;
 use serde::{Deserialize, Serialize};
 
 use crate::conditions::Conditions;
@@ -19,6 +20,28 @@ pub struct AnalyzeRequest {
     pub partner: Option<String>,
     #[serde(default)]
     pub conditions: Conditions,
+    #[serde(default)]
+    pub engine: Engine,
+}
+
+/// Nearest-neighbour parameter set for hairpin and dimer folding/scoring
+/// (Oligool's Mathews/SantaLucia switch). Duplex Tm always uses SantaLucia
+/// & Hicks 2004 nearest-neighbour values, whichever is chosen.
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Engine {
+    #[default]
+    Mathews,
+    Santalucia,
+}
+
+impl Engine {
+    fn param_set(self) -> ParamSetId {
+        match self {
+            Engine::Mathews => ParamSetId::Mathews2004,
+            Engine::Santalucia => ParamSetId::SantaLucia2004,
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -105,6 +128,7 @@ pub async fn analyze(Json(req): Json<AnalyzeRequest>) -> Result<Json<AnalyzeResp
         _ => None,
     };
     let c = req.conditions;
+    let ps = req.engine.param_set();
 
     // CPU-bound subopt enumeration: keep it off the async workers.
     let result = tokio::task::spawn_blocking(move || -> Result<AnalyzeResponse, AppError> {
@@ -112,8 +136,8 @@ pub async fn analyze(Json(req): Json<AnalyzeRequest>) -> Result<Json<AnalyzeResp
         Ok(AnalyzeResponse {
             oligo: properties(&seq, &c)?,
             partner: partner.as_deref().map(|p| properties(p, &c)).transpose()?,
-            structures: analyze_structure(&seq, partner.as_deref(), params),
-            partner_structures: partner.as_deref().map(|p| analyze_structure(p, None, params)),
+            structures: analyze_structure_in(ps, &seq, partner.as_deref(), params),
+            partner_structures: partner.as_deref().map(|p| analyze_structure_in(ps, p, None, params)),
         })
     })
     .await

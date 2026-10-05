@@ -1,10 +1,13 @@
 import { useEffect, useState, type ClipboardEvent } from 'react';
+import type { Engine } from '../lib/api';
 import { PRESETS, parseConditions, presetOf, type Conditions } from '../lib/conditions';
 import { Segmented } from './ui';
 
 interface Props {
   value: Conditions;
   onChange: (c: Conditions) => void;
+  engine: Engine;
+  onEngineChange: (e: Engine) => void;
 }
 
 const FIELDS: { key: keyof Conditions; label: string; unit: string; title: string }[] = [
@@ -26,7 +29,7 @@ function NumField({ label, unit, title, value, onCommit, onPaste }: { label: str
   return (
     <label className="flex flex-col gap-1" title={title}>
       <span className="text-[12px] text-ink-muted">{label}</span>
-      <span className={`flex h-8 items-center rounded-md border bg-surface pr-2 focus-within:border-accent ${invalid ? 'border-danger' : 'border-line-strong'}`}>
+      <span className={`flex h-7 items-center rounded-md border bg-surface pr-2 focus-within:border-accent ${invalid ? 'border-danger' : 'border-line-strong'}`}>
         <input
           type="text"
           inputMode="decimal"
@@ -37,7 +40,7 @@ function NumField({ label, unit, title, value, onCommit, onPaste }: { label: str
             if (e.target.value.trim() !== '' && Number.isFinite(v) && v >= 0) onCommit(v);
           }}
           onPaste={onPaste}
-          className="w-[4.5rem] bg-transparent px-2 font-mono text-[13px] tabular-nums text-ink focus:outline-none"
+          className="w-[3.75rem] bg-transparent px-2 font-mono text-[13px] tabular-nums text-ink focus:outline-none"
         />
         <span className="font-mono text-[12px] text-ink-faint">{unit}</span>
       </span>
@@ -45,7 +48,7 @@ function NumField({ label, unit, title, value, onCommit, onPaste }: { label: str
   );
 }
 
-export default function ConditionsBar({ value, onChange }: Props) {
+export default function ConditionsBar({ value, onChange, engine, onEngineChange }: Props) {
   const [note, setNote] = useState<string | null>(null);
   const preset = presetOf(value);
 
@@ -81,33 +84,39 @@ export default function ConditionsBar({ value, onChange }: Props) {
   };
 
   return (
-    <div>
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <span className="label">Conditions</span>
-        <div className="flex items-center gap-2">
-          {note && <span className="text-[12px] text-accent">{note}</span>}
-          <button type="button" onClick={pasteFromClipboard} className="text-[12px] text-ink-muted underline decoration-line-strong underline-offset-2 hover:text-ink" title="Reads labelled values, e.g. IDT's 'Oligo Conc 0.25 µM, Na+ Conc 50 mM, Mg++ Conc 0 mM, dNTPs Conc 0 mM'">
-            Paste IDT parameters
-          </button>
-          <Segmented
-            label="Preset"
-            value={preset ?? 'custom'}
-            onChange={(id) => {
-              const p = PRESETS.find((x) => x.id === id);
-              if (p) onChange(p.conditions);
-            }}
-            options={[...PRESETS.map((p) => ({ value: p.id, label: p.label })), { value: 'custom', label: 'Custom', disabled: preset !== null }]}
-          />
-        </div>
+    <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+      {FIELDS.map((f) => (
+        <NumField key={f.key} label={f.label} unit={f.unit} title={f.title} value={value[f.key]} onCommit={(v) => onChange({ ...value, [f.key]: v })} onPaste={onPaste} />
+      ))}
+      <div className="flex flex-col gap-1">
+        <span className="text-[12px] text-ink-muted">Preset</span>
+        <Segmented
+          label="Preset"
+          value={preset ?? 'custom'}
+          onChange={(id) => {
+            const p = PRESETS.find((x) => x.id === id);
+            if (p) onChange(p.conditions);
+          }}
+          options={[...PRESETS.map((p) => ({ value: p.id, label: p.label })), { value: 'custom', label: 'Custom', disabled: preset !== null }]}
+        />
       </div>
-      <div className="flex flex-wrap gap-x-5 gap-y-3">
-        {FIELDS.map((f) => (
-          <NumField key={f.key} label={f.label} unit={f.unit} title={f.title} value={value[f.key]} onCommit={(v) => onChange({ ...value, [f.key]: v })} onPaste={onPaste} />
-        ))}
-        <div className="flex flex-col gap-1" title="Fixed, as in IDT OligoAnalyzer's default">
-          <span className="text-[12px] text-ink-muted">Hairpin ΔG at</span>
-          <span className="flex h-8 items-center font-mono text-[13px] text-ink-faint">25 °C</span>
-        </div>
+      <div className="flex flex-col gap-1" title="Nearest-neighbour parameters for hairpins and dimers. Duplex Tm always uses SantaLucia & Hicks 2004.">
+        <span className="text-[12px] text-ink-muted">Structure engine</span>
+        <Segmented
+          label="Structure engine"
+          value={engine}
+          onChange={onEngineChange}
+          options={[
+            { value: 'mathews', label: 'Mathews', title: 'Mathews 2004 (closest to IDT)' },
+            { value: 'santalucia', label: 'SantaLucia', title: 'SantaLucia 2004 (Strider native)' },
+          ]}
+        />
+      </div>
+      <div className="flex h-8 items-center gap-2 pb-0.5">
+        <button type="button" onClick={pasteFromClipboard} className="text-[12px] text-ink-muted underline decoration-line-strong underline-offset-2 hover:text-ink" title="Reads labelled values, e.g. IDT's 'Oligo Conc 0.25 µM, Na+ Conc 50 mM, Mg++ Conc 0 mM, dNTPs Conc 0 mM'">
+          Paste IDT parameters
+        </button>
+        {note && <span className="text-[12px] text-accent">{note}</span>}
       </div>
     </div>
   );

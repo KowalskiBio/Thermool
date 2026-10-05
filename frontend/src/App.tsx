@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { analyze, ApiError, type AnalyzeResponse, type IdtKind } from './lib/api';
+import { analyze, ApiError, type AnalyzeResponse, type Engine, type IdtKind } from './lib/api';
 import { conditionsKey, loadConditions, saveConditions, type Conditions } from './lib/conditions';
 import { cleanSequence } from './lib/format';
 import { EMPTY_CREDENTIALS, hasCredentials, loadCredentials, runIdt, type IdtCredentials } from './lib/idt';
@@ -38,6 +38,14 @@ function useTheme() {
   return [theme, setTheme] as const;
 }
 
+function loadEngine(): Engine {
+  try {
+    return localStorage.getItem('thermool-engine') === 'santalucia' ? 'santalucia' : 'mathews';
+  } catch {
+    return 'mathews';
+  }
+}
+
 const idtKey = (kind: IdtKind, c: Conditions, seq: string, partner?: string) => `${kind}|${conditionsKey(c)}|${seq}|${partner ?? ''}`;
 
 export default function App() {
@@ -46,6 +54,7 @@ export default function App() {
   const [partnerText, setPartnerText] = useState('');
   const [showPartner, setShowPartner] = useState(false);
   const [conditions, setConditions] = useState<Conditions>(loadConditions);
+  const [engine, setEngine] = useState<Engine>(loadEngine);
   const [result, setResult] = useState<{ data: AnalyzeResponse; conditions: Conditions } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -58,6 +67,13 @@ export default function App() {
   }, []);
 
   useEffect(() => saveConditions(conditions), [conditions]);
+  useEffect(() => {
+    try {
+      localStorage.setItem('thermool-engine', engine);
+    } catch {
+      /* not remembered */
+    }
+  }, [engine]);
 
   const oligo = cleanSequence(seqText);
   const partner = showPartner ? cleanSequence(partnerText) : '';
@@ -74,7 +90,7 @@ export default function App() {
     const c = conditions;
     setLoading(true);
     const t = setTimeout(() => {
-      analyze(oligo, partner || null, c, ctl.signal)
+      analyze(oligo, partner || null, c, engine, ctl.signal)
         .then((data) => {
           setResult({ data, conditions: c });
           setError(null);
@@ -91,7 +107,7 @@ export default function App() {
       clearTimeout(t);
       ctl.abort();
     };
-  }, [oligo, partner, conditions]);
+  }, [oligo, partner, conditions, engine]);
 
   const connected = hasCredentials(creds);
 
@@ -123,30 +139,34 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-line">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-baseline gap-3">
-            <span className="text-[15px] font-semibold tracking-tight">Thermool</span>
-            <span className="hidden text-[12px] text-ink-faint sm:inline">oligo thermodynamics by Strider</span>
+      {/* Oligool-style floating bar: title, settings and IDT stay in reach while results scroll. */}
+      <header className="relative z-40 mx-auto mt-2 max-w-5xl px-2 sm:sticky sm:top-2 sm:px-4">
+        <div className="rounded-lg border border-line bg-base/92 px-4 py-3 shadow-sm backdrop-blur-md">
+          <div className="mb-2.5 flex items-start justify-between gap-3">
+            <div>
+              <h1 className="text-[17px] font-semibold tracking-tight">Thermool</h1>
+              <p className="text-[12px] text-ink-faint">Oligo thermodynamics by Strider</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setDialogOpen(true)}
+                className={`inline-flex h-7 items-center gap-2 rounded-full border px-3 text-[12px] font-medium ${connected ? 'border-idt/40 text-idt' : 'border-line-strong text-ink-muted hover:text-ink'}`}
+              >
+                <span className={`size-1.5 rounded-full ${connected ? 'bg-idt' : 'bg-ink-faint'}`} />
+                {connected ? `IDT · ${creds.region.toUpperCase()}` : 'Connect IDT'}
+              </button>
+              <button type="button" onClick={() => setTheme(nextTheme[theme])} title={`Theme: ${theme}`} aria-label={`Theme: ${theme}`} className="inline-flex size-7 items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink">
+                <ThemeIcon theme={theme} />
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setDialogOpen(true)}
-              className={`inline-flex h-7 items-center gap-2 rounded-full border px-3 text-[12px] font-medium ${connected ? 'border-idt/40 text-idt' : 'border-line-strong text-ink-muted hover:text-ink'}`}
-            >
-              <span className={`size-1.5 rounded-full ${connected ? 'bg-idt' : 'bg-ink-faint'}`} />
-              {connected ? `IDT · ${creds.region.toUpperCase()}` : 'Connect IDT'}
-            </button>
-            <button type="button" onClick={() => setTheme(nextTheme[theme])} title={`Theme: ${theme}`} aria-label={`Theme: ${theme}`} className="inline-flex size-7 items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink">
-              <ThemeIcon theme={theme} />
-            </button>
-          </div>
+          <ConditionsBar value={conditions} onChange={setConditions} engine={engine} onEngineChange={setEngine} />
         </div>
       </header>
 
       <main className="mx-auto max-w-5xl px-4 pb-16 sm:px-6">
-        <div className="space-y-5 py-6">
+        <div className="space-y-5 pt-6 pb-6">
           <SequenceField
             id="oligo"
             label="Sequence"
@@ -195,7 +215,6 @@ export default function App() {
               }
             />
           )}
-          <ConditionsBar value={conditions} onChange={setConditions} />
         </div>
 
         {error && (
@@ -238,7 +257,7 @@ export default function App() {
 
       <footer className="border-t border-line">
         <div className="mx-auto max-w-5xl px-4 py-4 text-[11px] leading-relaxed text-ink-faint sm:px-6">
-          Strider (native Rust, via Primerool): SantaLucia &amp; Hicks 2004 nearest-neighbour duplex Tm with Owczarzy Na⁺/Mg²⁺ correction (Mg²⁺ net of dNTPs); Mathews 2004 hairpin folding; ranked suboptimal hairpins and dimers. IDT values come from IDT OligoAnalyzer under the same conditions.
+          Strider (native Rust, via Primerool): SantaLucia &amp; Hicks 2004 nearest-neighbour duplex Tm with Owczarzy Na⁺/Mg²⁺ correction (Mg²⁺ net of dNTPs); hairpins and dimers folded and scored with {engine === 'mathews' ? 'Mathews 2004' : 'SantaLucia 2004'} parameters, ranked suboptimal structures. IDT values come from IDT OligoAnalyzer under the same conditions.
         </div>
       </footer>
 
