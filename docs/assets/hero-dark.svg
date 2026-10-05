@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-label="Thermool: oligo thermodynamics with Strider, compared side by side with IDT OligoAnalyzer">
+<defs>
+  <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1.2" cy="1.2" r="1.2" fill="#1f2026"/></pattern>
+  <radialGradient id="halo" cx="0.66" cy="0.5" r="0.55"><stop offset="0" stop-color="#86a6f8" stop-opacity="0.13"/><stop offset="1" stop-color="#86a6f8" stop-opacity="0"/></radialGradient>
+  <linearGradient id="fade" x1="0" x2="1"><stop offset="0" stop-color="#0f1013" stop-opacity="1"/><stop offset="0.42" stop-color="#0f1013" stop-opacity="0.85"/><stop offset="1" stop-color="#0f1013" stop-opacity="0"/></linearGradient>
+  <clipPath id="card"><rect x="1" y="1" width="1278" height="418" rx="22"/></clipPath>
+</defs>
+<style>
+  .type { opacity: 0; animation: type 9s infinite both; }
+  @keyframes type { 0% { opacity: 0 } 2% { opacity: 1 } 86% { opacity: 1 } 92%, 100% { opacity: 0 } }
+  .chip { opacity: 0; animation: chip 9s infinite both; }
+  @keyframes chip { 0%, 22% { opacity: 0; transform: translateY(6px) } 27% { opacity: 1; transform: translateY(0) } 86% { opacity: 1 } 92%, 100% { opacity: 0 } }
+  .rung { opacity: 0; animation: rung 9s infinite both; }
+  @keyframes rung { 0% { opacity: 0 } 3% { opacity: 1 } 50% { opacity: 1 } 54%, 100% { opacity: 0 } }
+  .draw { stroke-dasharray: 100; stroke-dashoffset: 100; animation: draw 9s infinite linear both; }
+  @keyframes draw { 0%, 18% { stroke-dashoffset: 100 } 40% { stroke-dashoffset: 62 } 60% { stroke-dashoffset: 24 } 82%, 92% { stroke-dashoffset: 0 } 100% { stroke-dashoffset: 0; opacity: 0 } }
+  .tm { animation: tm 9s infinite both; }
+  @keyframes tm { 0%, 44% { opacity: 0.35 } 50%, 62% { opacity: 1 } 72%, 100% { opacity: 0.35 } }
+  .caret { animation: caret 1s steps(1) infinite; }
+  @keyframes caret { 50% { opacity: 0 } }
+  .pulse { animation: pulse 3s ease-in-out infinite; transform-origin: 1120px 74px; }
+  @keyframes pulse { 0%, 100% { opacity: 0.55 } 50% { opacity: 1 } }
+  @media (prefers-reduced-motion: reduce) { .type, .chip, .rung, .draw, .tm, .caret, .pulse { animation: none; opacity: 1; stroke-dashoffset: 0; } }
+</style>
+<g clip-path="url(#card)"><rect width="1280" height="420" fill="#0f1013"/><rect width="1280" height="420" fill="url(#dots)"/><rect width="1280" height="420" fill="url(#halo)"/><rect width="700" height="420" fill="url(#fade)"/></g>
+<rect x="1" y="1" width="1278" height="418" rx="22" fill="none" stroke="#26272d" stroke-width="1.5"/>
+<text x="72" y="92" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="3" fill="#86a6f8">STRIDER  ·  IDT OLIGOANALYZER  ·  RUST</text>
+<text x="69" y="168" font-family="'IBM Plex Sans','Inter','Segoe UI',Helvetica,Arial,sans-serif" font-size="78" font-weight="600" letter-spacing="-2.5" fill="#ececf0">Thermool</text>
+<text x="72" y="210" font-family="'IBM Plex Sans','Inter','Segoe UI',Helvetica,Arial,sans-serif" font-size="22" fill="#a3a3ad">Oligo thermodynamics, side by side with IDT.</text>
+<text x="72" y="262" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="21" fill="#6b6b75">5′</text>
+<text class="type" style="animation-delay:0.00s" x="106.0" y="262" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="21" font-weight="500" fill="#E8786F">G</text>
+<text class="type" style="animation-delay:0.08s" x="119.2" y="262" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="21" font-weight="500" fill="#89C997">C</text>
+<text class="type" style="animation-delay:0.16s" x="132.5" y="262" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="21" font-weight="500" fill="#F2A65A">A</text>
+<text class="type" style="animation-delay:0.24s" x="145.8" y="262" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="21" font-weight="500" fill="#89C997">C</text>
+<text class="type" style="animation-delay:0.32s" x="159.0" y="262" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="21" font-weight="500" fill="#6FA8DC">T</text>
+<text class="type" style="animation-delay:0.40s" x="172.2" y="262" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="21" font-weight="500" fill="#F2A65A">A</text>
+<text class="type" style="animation-delay:0.48s" x="185.5" y="262" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="21" font-weight="500" fill="#89C997">C</text>
+<text class="type" style="animation-delay:0.56s" x="198.8" y="262" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="21" font-weight="500" fill="#F2A65A">A</text>
+<text class="type" style="animation-delay:0.64s" x="212.0" y="262" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="21" font-weight="500" fill="#F2A65A">A</text>
+<text class="type" style="animation-delay:0.72s" x="225.2" y="262" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="21" font-weight="500" fill="#89C997">C</text>
+<text class="type" style="animation-delay:0.80s" x="238.5" y="262" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="21" font-weight="500" fill="#89C997">C</text>
+<text class="type" style="animation-delay:0.88s" x="251.8" y="262" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="21" font-weight="500" fill="#E8786F">G</text>
+<text class="type" style="animation-delay:0.96s" x="265.0" y="262" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="21" font-weight="500" fill="#89C997">C</text>
+<text class="type" style="animation-delay:1.04s" x="278.2" y="262" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="21" font-weight="500" fill="#6FA8DC">T</text>
+<text class="type" style="animation-delay:1.12s" x="291.5" y="262" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="21" font-weight="500" fill="#F2A65A">A</text>
+<text class="type" style="animation-delay:1.20s" x="304.8" y="262" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="21" font-weight="500" fill="#89C997">C</text>
+<text class="type" style="animation-delay:1.28s" x="318.0" y="262" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="21" font-weight="500" fill="#89C997">C</text>
+<text class="type" style="animation-delay:1.36s" x="331.2" y="262" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="21" font-weight="500" fill="#E8786F">G</text>
+<text class="type" style="animation-delay:1.44s" x="344.5" y="262" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="21" font-weight="500" fill="#6FA8DC">T</text>
+<text class="type" style="animation-delay:1.52s" x="357.8" y="262" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="21" font-weight="500" fill="#E8786F">G</text>
+<text class="type" style="animation-delay:1.60s" x="377.0" y="262" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="21" fill="#6b6b75">3′</text>
+<g class="chip" style="animation-delay:0.00s">
+<rect x="72" y="290" width="124" height="40" rx="20" fill="#17181c" stroke="#26272d"/>
+<text x="89" y="315" font-family="'IBM Plex Sans','Inter','Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#a3a3ad">Tm<tspan dx="9" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15" font-weight="500" fill="#ececf0">67.6 °C</tspan></text>
+</g>
+<g class="chip" style="animation-delay:0.12s">
+<rect x="205.6" y="290" width="114" height="40" rx="20" fill="#17181c" stroke="#26272d"/>
+<text x="222.6" y="315" font-family="'IBM Plex Sans','Inter','Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#a3a3ad">GC<tspan dx="9" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15" font-weight="500" fill="#ececf0">60.0 %</tspan></text>
+</g>
+<g class="chip" style="animation-delay:0.24s">
+<rect x="330.0" y="290" width="249" height="40" rx="20" fill="#17181c" stroke="#26272d"/>
+<text x="347.0" y="315" font-family="'IBM Plex Sans','Inter','Segoe UI',Helvetica,Arial,sans-serif" font-size="14" fill="#a3a3ad">Hairpin ΔG<tspan dx="9" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15" font-weight="500" fill="#ececf0">-0.60 kcal/mol</tspan></text>
+</g>
+<text x="72" y="368" font-family="'IBM Plex Sans','Inter','Segoe UI',Helvetica,Arial,sans-serif" font-size="13.5" fill="#6b6b75">Strider values for this oligo at 50 mM Na⁺, 3 mM Mg²⁺, 0.8 mM dNTPs, 0.2 µM.</text>
+<polyline points="777.0,316.0 777.0,288.0 777.0,260.0 777.0,232.0 777.0,204.0 777.0,176.0 764.2,146.2 783.1,118.2 816.9,118.2 835.8,146.2 823.0,176.0 823.0,204.0 823.0,232.0 823.0,260.0 823.0,288.0 823.0,316.0" fill="none" stroke="#6b6b75" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" opacity="0.8"/>
+<line class="rung" style="animation-delay:0.00s" x1="789" y1="316" x2="811" y2="316" stroke="#86a6f8" stroke-width="3" stroke-linecap="round"/>
+<line class="rung" style="animation-delay:0.22s" x1="789" y1="288" x2="811" y2="288" stroke="#86a6f8" stroke-width="3" stroke-linecap="round"/>
+<line class="rung" style="animation-delay:0.44s" x1="789" y1="260" x2="811" y2="260" stroke="#86a6f8" stroke-width="3" stroke-linecap="round"/>
+<line class="rung" style="animation-delay:0.66s" x1="789" y1="232" x2="811" y2="232" stroke="#86a6f8" stroke-width="3" stroke-linecap="round"/>
+<line class="rung" style="animation-delay:0.88s" x1="789" y1="204" x2="811" y2="204" stroke="#86a6f8" stroke-width="3" stroke-linecap="round"/>
+<line class="rung" style="animation-delay:1.10s" x1="789" y1="176" x2="811" y2="176" stroke="#86a6f8" stroke-width="3" stroke-linecap="round"/>
+<circle cx="777.0" cy="316.0" r="12" fill="#E8786F" stroke="#0f1013" stroke-width="2"/>
+<text x="777.0" y="320.6" text-anchor="middle" font-family="'IBM Plex Sans','Inter','Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" font-weight="700" fill="#ffffff">G</text>
+<circle cx="777.0" cy="288.0" r="12" fill="#89C997" stroke="#0f1013" stroke-width="2"/>
+<text x="777.0" y="292.6" text-anchor="middle" font-family="'IBM Plex Sans','Inter','Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" font-weight="700" fill="#ffffff">C</text>
+<circle cx="777.0" cy="260.0" r="12" fill="#E8786F" stroke="#0f1013" stroke-width="2"/>
+<text x="777.0" y="264.6" text-anchor="middle" font-family="'IBM Plex Sans','Inter','Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" font-weight="700" fill="#ffffff">G</text>
+<circle cx="777.0" cy="232.0" r="12" fill="#89C997" stroke="#0f1013" stroke-width="2"/>
+<text x="777.0" y="236.6" text-anchor="middle" font-family="'IBM Plex Sans','Inter','Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" font-weight="700" fill="#ffffff">C</text>
+<circle cx="777.0" cy="204.0" r="12" fill="#F2A65A" stroke="#0f1013" stroke-width="2"/>
+<text x="777.0" y="208.6" text-anchor="middle" font-family="'IBM Plex Sans','Inter','Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" font-weight="700" fill="#ffffff">A</text>
+<circle cx="777.0" cy="176.0" r="12" fill="#89C997" stroke="#0f1013" stroke-width="2"/>
+<text x="777.0" y="180.6" text-anchor="middle" font-family="'IBM Plex Sans','Inter','Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" font-weight="700" fill="#ffffff">C</text>
+<circle cx="764.2" cy="146.2" r="12" fill="#E8786F" stroke="#0f1013" stroke-width="2"/>
+<text x="764.2" y="150.8" text-anchor="middle" font-family="'IBM Plex Sans','Inter','Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" font-weight="700" fill="#ffffff">G</text>
+<circle cx="783.1" cy="118.2" r="12" fill="#F2A65A" stroke="#0f1013" stroke-width="2"/>
+<text x="783.1" y="122.8" text-anchor="middle" font-family="'IBM Plex Sans','Inter','Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" font-weight="700" fill="#ffffff">A</text>
+<circle cx="816.9" cy="118.2" r="12" fill="#F2A65A" stroke="#0f1013" stroke-width="2"/>
+<text x="816.9" y="122.8" text-anchor="middle" font-family="'IBM Plex Sans','Inter','Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" font-weight="700" fill="#ffffff">A</text>
+<circle cx="835.8" cy="146.2" r="12" fill="#F2A65A" stroke="#0f1013" stroke-width="2"/>
+<text x="835.8" y="150.8" text-anchor="middle" font-family="'IBM Plex Sans','Inter','Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" font-weight="700" fill="#ffffff">A</text>
+<circle cx="823.0" cy="176.0" r="12" fill="#E8786F" stroke="#0f1013" stroke-width="2"/>
+<text x="823.0" y="180.6" text-anchor="middle" font-family="'IBM Plex Sans','Inter','Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" font-weight="700" fill="#ffffff">G</text>
+<circle cx="823.0" cy="204.0" r="12" fill="#6FA8DC" stroke="#0f1013" stroke-width="2"/>
+<text x="823.0" y="208.6" text-anchor="middle" font-family="'IBM Plex Sans','Inter','Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" font-weight="700" fill="#ffffff">T</text>
+<circle cx="823.0" cy="232.0" r="12" fill="#E8786F" stroke="#0f1013" stroke-width="2"/>
+<text x="823.0" y="236.6" text-anchor="middle" font-family="'IBM Plex Sans','Inter','Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" font-weight="700" fill="#ffffff">G</text>
+<circle cx="823.0" cy="260.0" r="12" fill="#89C997" stroke="#0f1013" stroke-width="2"/>
+<text x="823.0" y="264.6" text-anchor="middle" font-family="'IBM Plex Sans','Inter','Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" font-weight="700" fill="#ffffff">C</text>
+<circle cx="823.0" cy="288.0" r="12" fill="#E8786F" stroke="#0f1013" stroke-width="2"/>
+<text x="823.0" y="292.6" text-anchor="middle" font-family="'IBM Plex Sans','Inter','Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" font-weight="700" fill="#ffffff">G</text>
+<circle cx="823.0" cy="316.0" r="12" fill="#89C997" stroke="#0f1013" stroke-width="2"/>
+<text x="823.0" y="320.6" text-anchor="middle" font-family="'IBM Plex Sans','Inter','Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" font-weight="700" fill="#ffffff">C</text>
+<text x="777" y="350" text-anchor="middle" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" fill="#6b6b75">5′</text>
+<text x="823" y="350" text-anchor="middle" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" fill="#6b6b75">3′</text>
+<rect x="914" y="64" width="322" height="304" rx="16" fill="#15161a" stroke="#26272d"/>
+<text x="934" y="92" font-family="'IBM Plex Sans','Inter','Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#ececf0">Fraction folded</text>
+<g class="pulse"><circle cx="1120" cy="74" r="4" fill="#55cab7"/></g><text x="1130" y="79" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" fill="#55cab7">live</text>
+<line x1="940" y1="120.0" x2="1210" y2="120.0" stroke="#26272d" stroke-width="1"/>
+<line x1="940" y1="170.0" x2="1210" y2="170.0" stroke="#26272d" stroke-width="1"/>
+<line x1="940" y1="220.0" x2="1210" y2="220.0" stroke="#26272d" stroke-width="1"/>
+<line x1="940" y1="270.0" x2="1210" y2="270.0" stroke="#26272d" stroke-width="1"/>
+<line x1="940" y1="320.0" x2="1210" y2="320.0" stroke="#26272d" stroke-width="1"/>
+<path d="M 940.0,120.1 L 944.5,120.1 L 949.0,120.1 L 953.5,120.2 L 958.0,120.2 L 962.5,120.3 L 967.0,120.4 L 971.5,120.5 L 976.0,120.6 L 980.5,120.7 L 985.0,120.9 L 989.5,121.2 L 994.0,121.5 L 998.5,121.9 L 1003.0,122.3 L 1007.5,123.0 L 1012.0,123.7 L 1016.5,124.7 L 1021.0,125.9 L 1025.5,127.3 L 1030.0,129.2 L 1034.5,131.5 L 1039.0,134.3 L 1043.5,137.7 L 1048.0,141.8 L 1052.5,146.8 L 1057.0,152.7 L 1061.5,159.6 L 1066.0,167.5 L 1070.5,176.4 L 1075.0,186.4 L 1079.5,197.1 L 1084.0,208.4 L 1088.5,220.0 L 1093.0,231.6 L 1097.5,242.9 L 1102.0,253.6 L 1106.5,263.6 L 1111.0,272.5 L 1115.5,280.4 L 1120.0,287.3 L 1124.5,293.2 L 1129.0,298.2 L 1133.5,302.3 L 1138.0,305.7 L 1142.5,308.5 L 1147.0,310.8 L 1151.5,312.7 L 1156.0,314.1 L 1160.5,315.3 L 1165.0,316.3 L 1169.5,317.0 L 1174.0,317.7 L 1178.5,318.1 L 1183.0,318.5 L 1187.5,318.8 L 1192.0,319.1 L 1196.5,319.3 L 1201.0,319.4 L 1205.5,319.5 L 1210.0,319.6" fill="none" stroke="#383943" stroke-width="3" stroke-linecap="round"/>
+<path class="draw" pathLength="100" d="M 940.0,120.1 L 944.5,120.1 L 949.0,120.1 L 953.5,120.2 L 958.0,120.2 L 962.5,120.3 L 967.0,120.4 L 971.5,120.5 L 976.0,120.6 L 980.5,120.7 L 985.0,120.9 L 989.5,121.2 L 994.0,121.5 L 998.5,121.9 L 1003.0,122.3 L 1007.5,123.0 L 1012.0,123.7 L 1016.5,124.7 L 1021.0,125.9 L 1025.5,127.3 L 1030.0,129.2 L 1034.5,131.5 L 1039.0,134.3 L 1043.5,137.7 L 1048.0,141.8 L 1052.5,146.8 L 1057.0,152.7 L 1061.5,159.6 L 1066.0,167.5 L 1070.5,176.4 L 1075.0,186.4 L 1079.5,197.1 L 1084.0,208.4 L 1088.5,220.0 L 1093.0,231.6 L 1097.5,242.9 L 1102.0,253.6 L 1106.5,263.6 L 1111.0,272.5 L 1115.5,280.4 L 1120.0,287.3 L 1124.5,293.2 L 1129.0,298.2 L 1133.5,302.3 L 1138.0,305.7 L 1142.5,308.5 L 1147.0,310.8 L 1151.5,312.7 L 1156.0,314.1 L 1160.5,315.3 L 1165.0,316.3 L 1169.5,317.0 L 1174.0,317.7 L 1178.5,318.1 L 1183.0,318.5 L 1187.5,318.8 L 1192.0,319.1 L 1196.5,319.3 L 1201.0,319.4 L 1205.5,319.5 L 1210.0,319.6" fill="none" stroke="#86a6f8" stroke-width="3.5" stroke-linecap="round"/>
+<g class="tm"><line x1="1088.5" y1="114" x2="1088.5" y2="326" stroke="#55cab7" stroke-width="1.6" stroke-dasharray="4 4"/><text x="1095.5" y="132" font-family="'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" font-weight="600" fill="#55cab7">Tm</text></g>
+<circle r="6.5" fill="#86a6f8" stroke="#15161a" stroke-width="2.5"><animateMotion dur="9s" repeatCount="indefinite" path="M 940.0,120.1 L 944.5,120.1 L 949.0,120.1 L 953.5,120.2 L 958.0,120.2 L 962.5,120.3 L 967.0,120.4 L 971.5,120.5 L 976.0,120.6 L 980.5,120.7 L 985.0,120.9 L 989.5,121.2 L 994.0,121.5 L 998.5,121.9 L 1003.0,122.3 L 1007.5,123.0 L 1012.0,123.7 L 1016.5,124.7 L 1021.0,125.9 L 1025.5,127.3 L 1030.0,129.2 L 1034.5,131.5 L 1039.0,134.3 L 1043.5,137.7 L 1048.0,141.8 L 1052.5,146.8 L 1057.0,152.7 L 1061.5,159.6 L 1066.0,167.5 L 1070.5,176.4 L 1075.0,186.4 L 1079.5,197.1 L 1084.0,208.4 L 1088.5,220.0 L 1093.0,231.6 L 1097.5,242.9 L 1102.0,253.6 L 1106.5,263.6 L 1111.0,272.5 L 1115.5,280.4 L 1120.0,287.3 L 1124.5,293.2 L 1129.0,298.2 L 1133.5,302.3 L 1138.0,305.7 L 1142.5,308.5 L 1147.0,310.8 L 1151.5,312.7 L 1156.0,314.1 L 1160.5,315.3 L 1165.0,316.3 L 1169.5,317.0 L 1174.0,317.7 L 1178.5,318.1 L 1183.0,318.5 L 1187.5,318.8 L 1192.0,319.1 L 1196.5,319.3 L 1201.0,319.4 L 1205.5,319.5 L 1210.0,319.6" keyPoints="0;0;0.38;0.76;1;1" keyTimes="0;0.18;0.4;0.6;0.82;1" calcMode="linear"/></circle>
+<text x="940" y="350" font-family="'IBM Plex Sans','Inter','Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" fill="#6b6b75">cold</text>
+<text x="1210" y="350" text-anchor="end" font-family="'IBM Plex Sans','Inter','Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" fill="#6b6b75">hot</text>
+</svg>
