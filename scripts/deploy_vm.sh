@@ -70,7 +70,7 @@ echo "==> Health-checking $HEALTH_URL"
 for _ in $(seq 1 20); do
   if curl -fsS "$HEALTH_URL" >/dev/null 2>&1; then
     echo "==> Pruning old auto-backups (keeping newest $KEEP_BACKUPS)"
-    ls -1dt "$HOME"/Thermool.autobak.* 2>/dev/null | tail -n +$((KEEP_BACKUPS + 1)) | xargs -r rm -rf
+    { ls -1dt "$HOME"/Thermool.autobak.* 2>/dev/null || true; } | tail -n +$((KEEP_BACKUPS + 1)) | xargs -r rm -rf
     echo "==> Deploy OK: $COMMIT is live and healthy."
     exit 0
   fi
