@@ -97,7 +97,7 @@ export default function ConditionsBar({ value, onChange, engine, onEngineChange 
             const p = PRESETS.find((x) => x.id === id);
             if (p) onChange(p.conditions);
           }}
-          options={[...PRESETS.map((p) => ({ value: p.id, label: p.label })), { value: 'custom', label: 'Custom', disabled: preset !== null }]}
+          options={[...PRESETS.map((p) => ({ value: p.id, label: p.label, title: `Reset to the ${p.label} preset (50 mM Na⁺, 3 mM Mg²⁺, 0.8 mM dNTPs, 0.2 µM)` })), { value: 'custom', label: 'Custom', disabled: preset !== null, title: 'Your own values: edit any field' }]}
         />
       </div>
       <div className="flex flex-col gap-1" title="Nearest-neighbour parameters for hairpins and dimers. Duplex Tm always uses SantaLucia & Hicks 2004.">

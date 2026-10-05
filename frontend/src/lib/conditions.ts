@@ -13,7 +13,6 @@ export interface Conditions {
 
 export const PRESETS: { id: string; label: string; conditions: Conditions }[] = [
   { id: 'qpcr', label: 'qPCR', conditions: { na_mm: 50, mg_mm: 3, dntp_mm: 0.8, oligo_um: 0.2 } },
-  { id: 'idt', label: 'IDT default', conditions: { na_mm: 50, mg_mm: 0, dntp_mm: 0, oligo_um: 0.25 } },
 ];
 
 export const DEFAULT_CONDITIONS = PRESETS[0].conditions;

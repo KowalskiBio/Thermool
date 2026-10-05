@@ -38,29 +38,29 @@
 <table>
   <tr>
     <td width="33%" valign="top">
-      <h3>⚡ Instant</h3>
+      <h3>Instant</h3>
       Results update as you type. A 150-mer with a partner strand is fully analysed in about 40 ms by Strider's native Rust core.
     </td>
     <td width="33%" valign="top">
-      <h3>🧬 Structures you can see</h3>
+      <h3>Structures you can see</h3>
       The five most stable hairpins, self-dimers and heterodimers, ranked, each drawn as a Strider fold or a duplex with ΔG, Tm and its share of the population.
     </td>
     <td width="33%" valign="top">
-      <h3>⚖️ IDT next to Strider</h3>
+      <h3>IDT next to Strider</h3>
       One button per analysis sends the same oligo and conditions to IDT OligoAnalyzer. IDT's structure lands on the Strider structure it matches.
     </td>
   </tr>
   <tr>
     <td valign="top">
-      <h3>🧪 Your conditions</h3>
-      Na⁺, Mg²⁺, dNTPs and oligo concentration in IDT's units, with qPCR and IDT presets. Paste IDT's parameter text and every field fills itself.
+      <h3>Your conditions</h3>
+      Na⁺, Mg²⁺, dNTPs and oligo concentration in IDT's units, starting from a qPCR preset you can edit freely. Paste IDT's parameter text and every field fills itself.
     </td>
     <td valign="top">
-      <h3>🔀 Two engines</h3>
+      <h3>Two engines</h3>
       Fold and score with Mathews 2004 (closest to IDT) or SantaLucia 2004, Strider's native set. Flip the switch and every structure is recomputed.
     </td>
     <td valign="top">
-      <h3>🌗 Calm by design</h3>
+      <h3>Calm by design</h3>
       A quiet, typographic interface in light and dark, with a floating settings bar that stays in reach while you scroll. Works down to phone width.
     </td>
   </tr>
@@ -136,10 +136,10 @@ Both run in the same Rust core. The SantaLucia set is checked against the Python
 
 Press **Connect IDT** and enter your IDT API credentials (client ID, client secret, username, password, EU or US region), the same ones Oligool and Primerool use.
 
-- 🔒 **Private by design.** Credentials are encrypted in your browser (AES-GCM with a non-extractable key) and only ever relayed to IDT. The server stores and logs nothing; the access token lives in memory.
-- 👁️ **Verifiable.** Secret fields have a Show toggle, so you can check exactly what is saved.
-- 🎯 **Matched, not guessed.** IDT reports one hairpin or dimer; Thermool compares its base pairs with all five Strider structures and places IDT's ΔG and Tm on the one it matches. If IDT's fold is not among them, the card says so.
-- 🧾 **Transparent.** IDT's raw response is one click away under every section.
+- **Private by design.** Credentials are encrypted in your browser (AES-GCM with a non-extractable key) and only ever relayed to IDT. The server stores and logs nothing; the access token lives in memory.
+- **Verifiable.** Secret fields have a Show toggle, so you can check exactly what is saved.
+- **Matched, not guessed.** IDT reports one hairpin or dimer; Thermool compares its base pairs with all five Strider structures and places IDT's ΔG and Tm on the one it matches. If IDT's fold is not among them, the card says so.
+- **Transparent.** IDT's raw response is one click away under every section.
 
 > [!NOTE]
 > Two differences are worth knowing when you compare numbers.
@@ -148,12 +148,14 @@ Press **Connect IDT** and enter your IDT API credentials (client ID, client secr
 
 ## Reaction conditions
 
-| Field | Unit | qPCR preset | IDT default |
-|---|---|---:|---:|
-| Oligo | µM | 0.2 | 0.25 |
-| Na⁺ | mM | 50 | 50 |
-| Mg²⁺ | mM | 3 | 0 |
-| dNTPs | mM | 0.8 | 0 |
+| Field | Unit | qPCR preset |
+|---|---|---:|
+| Oligo | µM | 0.2 |
+| Na⁺ | mM | 50 |
+| Mg²⁺ | mM | 3 |
+| dNTPs | mM | 0.8 |
+
+Every value can be changed; the preset switches to **Custom** as soon as you do, and **qPCR** restores it.
 
 Hairpin ΔG is reported at 25 °C and dimer ΔG at 37 °C, as in OligoAnalyzer. Paste text such as `Oligo Conc 0.25 µM, Na+ Conc 50 mM, Mg++ Conc 0 mM, dNTPs Conc 0 mM` into any field, or use **Paste IDT parameters**, and every value it names is filled in, with units converted.
 
