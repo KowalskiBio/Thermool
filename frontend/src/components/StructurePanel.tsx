@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { AnalyzeResponse, DualStructure, IdtKind, StructureCandidate } from '../lib/api';
 import { dgLevel, fmt, fmtTm, LEVEL_TEXT } from '../lib/format';
 import { matchIdt, readStructures, type IdtStructure } from '../lib/idtResult';
-import DimerSvg from './DimerSvg';
+import DuplexSvg from './DuplexSvg';
 import IdtButton, { IdtErrors, Unreadable, combine, type IdtEntry } from './IdtButton';
 import StriderStructure from './StriderStructure';
 import { Button, Segmented, Val } from './ui';
@@ -241,6 +241,6 @@ function Figure({ s, c, dimer, view }: { s: Section; c: StructureCandidate; dime
     return <StriderStructure sequence={s.seq1} structure={c.structure} title="Hairpin" fallback={null} />;
   }
   const seq2 = s.seq2!;
-  const duplex = <DimerSvg seq1={s.seq1} seq2={seq2} structure={c.structure} />;
+  const duplex = <DuplexSvg seq1={s.seq1} seq2={seq2} structure={c.structure} title={s.names ? 'Heterodimer' : 'Self-dimer'} />;
   return view === 'duplex' ? duplex : <StriderStructure sequence={s.seq1 + seq2} nick={s.seq1.length} strandNames={s.names} structure={c.structure} title={s.names ? 'Heterodimer' : 'Self-dimer'} fallback={duplex} />;
 }
