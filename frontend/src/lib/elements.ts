@@ -15,14 +15,49 @@
 
 export type Element = 'stem' | 'hairpin' | 'interior' | 'multiloop' | 'exterior';
 
-/** Strider's element palette (`strider.viz.style.ELEMENT_COLORS`). */
+/** Element colours: Strider's palette (`strider.viz.style.ELEMENT_COLORS`)
+ * except exterior, which is a neutral grey instead of Strider's teal so it
+ * cannot be confused with the blue stem. */
 export const ELEMENT_COLORS: Record<Element, string> = {
   stem: '#6FA8DC',
   hairpin: '#F2A65A',
   interior: '#89C997',
   multiloop: '#C39BD3',
-  exterior: '#6FD4C8',
+  exterior: '#A3A8B3',
 };
+
+export type Base = 'A' | 'C' | 'G' | 'T';
+
+/** Strider's nucleotide palette (`strider.viz.style`). */
+export const BASE_COLORS: Record<Base, string> = { A: '#F2A65A', C: '#89C997', G: '#E8786F', T: '#6FA8DC' };
+
+/** Every colour a structure drawing uses; users can override any of them. */
+export interface Palette {
+  elements: Record<Element, string>;
+  bases: Record<Base, string>;
+}
+
+export const DEFAULT_PALETTE: Palette = { elements: ELEMENT_COLORS, bases: BASE_COLORS };
+
+/** Colour of base `b` (U drawn as T). */
+export function baseColor(p: Palette, b: string): string {
+  const k = (b === 'U' ? 'T' : b) as Base;
+  return p.bases[k] ?? 'gray';
+}
+
+/** Letter colour that stays readable on `fill`: white on mid and dark
+ * colours (Strider's look), near-black on very light ones. */
+export function textOn(fill: string): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(fill);
+  if (!m) return '#ffffff';
+  const n = parseInt(m[1], 16);
+  const lin = (c: number) => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  };
+  const lum = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+  return lum > 0.55 ? '#1c1c1f' : '#ffffff';
+}
 
 export const ELEMENT_LABELS: [Element, string][] = [
   ['stem', 'Stem'],

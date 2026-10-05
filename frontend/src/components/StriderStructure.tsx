@@ -14,7 +14,7 @@
 import { useMemo, useSyncExternalStore, type ReactNode } from 'react';
 import { openSvgInNewTab } from '../lib/openSvgTab';
 import { layoutStructure, parsePairs, type Pair, type Pt } from '../lib/striderLayout';
-import { ELEMENT_COLORS, elementTypes } from '../lib/elements';
+import { DEFAULT_PALETTE, baseColor, elementTypes, textOn, type Palette } from '../lib/elements';
 
 /** Base colouring: by nucleotide, or by secondary-structure element. */
 export type ColorBy = 'base' | 'structure';
@@ -22,6 +22,8 @@ export type ColorBy = 'base' | 'structure';
 interface Props {
   /** Default 'base' (nucleotide palette). */
   colorBy?: ColorBy;
+  /** Colours for bases and elements (user-customisable). */
+  palette?: Palette;
   /** One strand, or both strands of a dimer concatenated (no separator). */
   sequence: string;
   /** Dot-bracket over `sequence`. */
@@ -36,8 +38,6 @@ interface Props {
   title?: string;
 }
 
-// Strider's palette (`strider.viz.style`).
-const NT_COLORS: Record<string, string> = { A: '#F2A65A', T: '#6FA8DC', U: '#6FA8DC', C: '#89C997', G: '#E8786F' };
 const BACKBONE = '#8c8c8c';
 const RUNG = '#cccccc';
 const ACCENT = '#B279A2';
@@ -249,7 +249,7 @@ function buildFigure(sequence: string, structure: string, nick: number | undefin
   return { seq, coords: xy, backbone: layout.backbone, rungs: layout.rungs, crossing: layout.crossing, labels, box: { x: minX * S, y: -maxY * S, w: (maxX - minX) * S, h: (maxY - minY) * S } };
 }
 
-export default function StriderStructure({ sequence, structure, nick, strandNames, fallback, title = 'Secondary structure', colorBy = 'base' }: Props) {
+export default function StriderStructure({ sequence, structure, nick, strandNames, fallback, title = 'Secondary structure', colorBy = 'base', palette = DEFAULT_PALETTE }: Props) {
   const elements = useMemo(() => (colorBy === 'structure' ? elementTypes(structure.replace(/[&+]/g, ''), nick) : null), [colorBy, structure, nick]);
   const dark = useSyncExternalStore(subscribeTheme, isDark, () => false);
   const figure = useMemo(() => {
@@ -262,6 +262,7 @@ export default function StriderStructure({ sequence, structure, nick, strandName
 
   if (!figure) return <>{fallback}</>;
   const theme = dark ? THEME.dark : THEME.light;
+  const fillAt = (i: number) => (elements?.[i] ? palette.elements[elements[i]] : baseColor(palette, figure.seq[i]));
   const X = (p: Pt) => p[0] * S;
   const Y = (p: Pt) => -p[1] * S;
   const { coords: xy } = figure;
@@ -303,8 +304,8 @@ export default function StriderStructure({ sequence, structure, nick, strandName
       })}
       {xy.map((p, i) => (
         <g key={`n${i}`}>
-          <circle cx={X(p)} cy={Y(p)} r={RADIUS * S} fill={elements?.[i] ? ELEMENT_COLORS[elements[i]] : (NT_COLORS[figure.seq[i]] ?? 'gray')} stroke={BALL_EDGE} strokeWidth={0.025 * S} />
-          <text x={X(p)} y={Y(p)} textAnchor="middle" dominantBaseline="central" fontSize={0.66 * S} fontWeight="bold" fill="#ffffff">
+          <circle cx={X(p)} cy={Y(p)} r={RADIUS * S} fill={fillAt(i)} stroke={BALL_EDGE} strokeWidth={0.025 * S} />
+          <text x={X(p)} y={Y(p)} textAnchor="middle" dominantBaseline="central" fontSize={0.66 * S} fontWeight="bold" fill={textOn(fillAt(i))}>
             {figure.seq[i]}
           </text>
         </g>

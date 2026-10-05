@@ -10,7 +10,7 @@
  * fixed scale, so bases are the same size in every card.
  */
 import { openSvgInNewTab } from '../lib/openSvgTab';
-import { ELEMENT_COLORS, elementTypes } from '../lib/elements';
+import { DEFAULT_PALETTE, baseColor, elementTypes, textOn, type Palette } from '../lib/elements';
 import type { ColorBy } from './StriderStructure';
 
 interface Props {
@@ -21,10 +21,10 @@ interface Props {
   title?: string;
   /** Default 'base' (nucleotide palette). */
   colorBy?: ColorBy;
+  /** Colours for bases and elements (user-customisable). */
+  palette?: Palette;
 }
 
-// Strider's palette (`strider.viz.style`), as in `StriderStructure`.
-const NT: Record<string, string> = { A: '#F2A65A', T: '#6FA8DC', U: '#6FA8DC', C: '#89C997', G: '#E8786F' };
 const BACKBONE = '#8c8c8c';
 const RUNG = '#c4c4c4';
 const BALL_EDGE = '#333333';
@@ -91,7 +91,7 @@ function layout(n1: number, n2: number, pairs: [number, number][]): Layout {
 /** Overhang bases kept next to the paired region; longer ends collapse to "+N". */
 const FLANK = 4;
 
-export default function DuplexSvg({ seq1, seq2, structure, title = 'Dimer', colorBy = 'base' }: Props) {
+export default function DuplexSvg({ seq1, seq2, structure, title = 'Dimer', colorBy = 'base', palette = DEFAULT_PALETTE }: Props) {
   const s1 = seq1.toUpperCase();
   const s2 = seq2.toUpperCase();
   const pairs = interPairs(structure, s1.length);
@@ -103,8 +103,8 @@ export default function DuplexSvg({ seq1, seq2, structure, title = 'Dimer', colo
   const L = layout(n1, n2, pairs);
   const elements = colorBy === 'structure' ? elementTypes(structure, n1) : null;
   // Fill per base: top by seq1 index, bottom by display index (3' to 5').
-  const topFill = (k: number) => (elements ? ELEMENT_COLORS[elements[k]] : (NT[s1[k]] ?? 'gray'));
-  const botFill = (d: number) => (elements ? ELEMENT_COLORS[elements[n1 + n2 - 1 - d]] : (NT[s2[n2 - 1 - d]] ?? 'gray'));
+  const topFill = (k: number) => (elements ? palette.elements[elements[k]] : baseColor(palette, s1[k]));
+  const botFill = (d: number) => (elements ? palette.elements[elements[n1 + n2 - 1 - d]] : baseColor(palette, s2[n2 - 1 - d]));
 
   // Visible ranges, each in its strand's left-to-right display order.
   // Top: seq1 indices. Bottom: display index d = n2 - 1 - j (3' to 5').
@@ -153,7 +153,7 @@ export default function DuplexSvg({ seq1, seq2, structure, title = 'Dimer', colo
       els.push(
         <g key={`${key}b${k}`}>
           <circle cx={x(cols[k])} cy={y} r={R} fill={fill(k)} stroke={BALL_EDGE} strokeWidth={0.6} />
-          <text x={x(cols[k])} y={y} textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={700} fill="#ffffff">
+          <text x={x(cols[k])} y={y} textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={700} fill={textOn(fill(k))}>
             {seq[k]}
           </text>
         </g>,
