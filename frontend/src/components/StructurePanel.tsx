@@ -3,7 +3,7 @@ import type { AnalyzeResponse, DualStructure, IdtKind, StructureCandidate } from
 import { dgLevel, fmt, fmtTm, LEVEL_TEXT } from '../lib/format';
 import { readStructures, type IdtStructure } from '../lib/idtResult';
 import DimerSvg from './DimerSvg';
-import IdtButton, { IdtErrors, combine, type IdtEntry } from './IdtButton';
+import IdtButton, { IdtErrors, Unreadable, combine, type IdtEntry } from './IdtButton';
 import StriderStructure from './StriderStructure';
 import { Button, Segmented, Val } from './ui';
 
@@ -173,7 +173,7 @@ function StrandSection({ section: s, model, dimer, view }: { section: Section; m
           </div>
           {rawOpen && <pre className="mb-3 max-h-72 overflow-auto rounded-md border border-line bg-surface-2 p-3 font-mono text-[11px] text-ink-muted">{JSON.stringify((s.idt as { raw: unknown }).raw, null, 2)}</pre>}
           {idt.length === 0 ? (
-            <p className="text-[13px] italic text-ink-faint">IDT reports no structure.</p>
+            <Unreadable raw={(s.idt as { raw: unknown }).raw} />
           ) : (
             <div className={`grid gap-3 ${dimer ? 'grid-cols-[repeat(auto-fill,minmax(min(26rem,100%),1fr))]' : 'grid-cols-[repeat(auto-fill,minmax(min(15rem,100%),1fr))]'}`}>
               {idt.slice(0, 5).map((d, i) => (
@@ -207,41 +207,21 @@ function Card({ rank, dg, tm, share, levelClass, idt = false, children }: { rank
   );
 }
 
-function DotBracket({ text }: { text: string }) {
-  return <p className="mt-2 break-all font-mono text-[11px] leading-4 tracking-[0.04em] text-ink-faint">{text}</p>;
-}
-
 function Figure({ s, c, dimer, view }: { s: Section; c: StructureCandidate; dimer: boolean; view: DimerView }) {
   if (!dimer) {
-    return (
-      <>
-        <StriderStructure sequence={s.seq1} structure={c.structure} title="Hairpin" fallback={null} />
-        <DotBracket text={c.structure} />
-      </>
-    );
+    return <StriderStructure sequence={s.seq1} structure={c.structure} title="Hairpin" fallback={null} />;
   }
   const seq2 = s.seq2!;
-  const db = `${c.structure.slice(0, s.seq1.length)}&${c.structure.slice(s.seq1.length)}`;
   const duplex = <DimerSvg seq1={s.seq1} seq2={seq2} structure={c.structure} />;
-  return (
-    <>
-      {view === 'duplex' ? duplex : <StriderStructure sequence={s.seq1 + seq2} nick={s.seq1.length} strandNames={s.names} structure={c.structure} title={s.names ? 'Heterodimer' : 'Self-dimer'} fallback={duplex} />}
-      <DotBracket text={db} />
-    </>
-  );
+  return view === 'duplex' ? duplex : <StriderStructure sequence={s.seq1 + seq2} nick={s.seq1.length} strandNames={s.names} structure={c.structure} title={s.names ? 'Heterodimer' : 'Self-dimer'} fallback={duplex} />;
 }
 
 function IdtFigure({ s, d }: { s: Section; d: IdtStructure }) {
   if (d.dotBracket) {
-    return (
-      <>
-        <StriderStructure sequence={s.seq1} structure={d.dotBracket} title="IDT hairpin" fallback={null} />
-        <DotBracket text={d.dotBracket} />
-      </>
-    );
+    return <StriderStructure sequence={s.seq1} structure={d.dotBracket} title="IDT hairpin" fallback={null} />;
   }
   if (d.duplex) {
     return <pre className="overflow-x-auto font-mono text-[12px] leading-[1.35] text-ink">{d.duplex.join('\n')}</pre>;
   }
-  return <p className="text-[12px] italic text-ink-faint">No structure drawing in IDT’s response.</p>;
+  return null;
 }

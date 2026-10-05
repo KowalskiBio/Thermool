@@ -1,6 +1,6 @@
 # Thermool
 
-Paste an oligo, see what Strider says about it: Tm, GC content, molecular weight, duplex ΔG/ΔH/ΔS, and the five most stable hairpins, self-dimers and (with a partner sequence) heterodimers, each drawn as a structure. Every analysis has an **IDT** button that runs the same thing on IDT OligoAnalyzer under the same conditions and shows IDT's numbers next to Strider's.
+Paste an oligo, see what Strider says about it: length, GC content and Tm, and the five most stable hairpins, self-dimers and (with a partner sequence) heterodimers, each drawn as a structure. Every analysis has an **IDT** button that runs the same thing on IDT OligoAnalyzer under the same conditions and shows IDT's numbers next to Strider's.
 
 ## Run
 

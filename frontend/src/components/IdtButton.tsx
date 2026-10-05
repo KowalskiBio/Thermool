@@ -29,3 +29,13 @@ export function IdtErrors({ entries }: { entries: (IdtEntry | undefined)[] }) {
     </div>
   );
 }
+
+/** IDT answered but none of its fields could be read: show what it sent. */
+export function Unreadable({ raw }: { raw: unknown }) {
+  return (
+    <div className="mt-2 rounded-md border border-line bg-surface-2 p-3">
+      <p className="mb-2 text-[12px] text-ink-muted">IDT answered, but Thermool couldn’t find the values in its response. Raw response:</p>
+      <pre className="max-h-72 overflow-auto font-mono text-[11px] text-ink-muted">{JSON.stringify(raw, null, 2)}</pre>
+    </div>
+  );
+}
