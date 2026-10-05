@@ -1,13 +1,10 @@
 import { useEffect, useState, type ClipboardEvent } from 'react';
-import type { Engine } from '../lib/api';
 import { PRESETS, parseConditions, presetOf, type Conditions } from '../lib/conditions';
 import { Segmented } from './ui';
 
 interface Props {
   value: Conditions;
   onChange: (c: Conditions) => void;
-  engine: Engine;
-  onEngineChange: (e: Engine) => void;
 }
 
 const FIELDS: { key: keyof Conditions; label: string; unit: string; title: string }[] = [
@@ -48,7 +45,7 @@ function NumField({ label, unit, title, value, onCommit, onPaste }: { label: str
   );
 }
 
-export default function ConditionsBar({ value, onChange, engine, onEngineChange }: Props) {
+export default function ConditionsBar({ value, onChange }: Props) {
   const [note, setNote] = useState<string | null>(null);
   const preset = presetOf(value);
 
@@ -98,18 +95,6 @@ export default function ConditionsBar({ value, onChange, engine, onEngineChange 
             if (p) onChange(p.conditions);
           }}
           options={[...PRESETS.map((p) => ({ value: p.id, label: p.label, title: `Reset to the ${p.label} preset (50 mM Na⁺, 3 mM Mg²⁺, 0.8 mM dNTPs, 0.2 µM)` })), { value: 'custom', label: 'Custom', disabled: preset !== null, title: 'Your own values: edit any field' }]}
-        />
-      </div>
-      <div className="flex flex-col gap-1" title="Nearest-neighbour parameters for hairpins and dimers. Duplex Tm always uses SantaLucia & Hicks 2004.">
-        <span className="text-[12px] text-ink-muted">Structure engine</span>
-        <Segmented
-          label="Structure engine"
-          value={engine}
-          onChange={onEngineChange}
-          options={[
-            { value: 'mathews', label: 'Mathews', title: 'Mathews 2004 (closest to IDT)' },
-            { value: 'santalucia', label: 'SantaLucia', title: 'SantaLucia 2004 (Strider native)' },
-          ]}
         />
       </div>
       <div className="flex h-8 items-center gap-2 pb-0.5">

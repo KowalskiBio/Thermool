@@ -83,6 +83,35 @@ export function analyze(sequence: string, partner: string | null, conditions: Co
   return postJson<AnalyzeResponse>('/api/analyze', { sequence, partner, conditions, engine }, signal);
 }
 
+// Competition (`src/competition.rs`).
+
+/** Equilibrium split of one strand at a temperature: fractions of its
+ * total population. `p_hairpin`, `p_unfolded` and `p_hairpin_two_state`
+ * are shares of the free monomer pool, not of the whole. */
+export interface Competition {
+  p_free: number;
+  p_hairpin: number;
+  p_hairpin_two_state: number;
+  p_unfolded: number;
+  p_self_dimer: number;
+  /** Null when there is no heterodimer context (no partner). */
+  p_hetero_dimer: number | null;
+  converged: boolean;
+}
+
+export interface CompetitionResponse {
+  oligo: Competition;
+  partner: Competition | null;
+}
+
+export function competition(sequence: string, partner: string | null, conditions: Conditions, engine: Engine, tempC: number, signal?: AbortSignal) {
+  return postJson<CompetitionResponse>('/api/competition', { sequence, partner, conditions, engine, temp_c: tempC }, signal);
+}
+
+/** How the stability strips split the monomer pool: the classic
+ * hairpin-vs-open two-state sigmoid, or the full ensemble partition. */
+export type EquilibriumSplit = 'two-way' | 'three-way';
+
 // IDT (`src/idt.rs`).
 
 export type IdtKind = 'analyze' | 'hairpin' | 'self_dimer' | 'hetero_dimer';

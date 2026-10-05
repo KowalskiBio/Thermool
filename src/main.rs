@@ -4,6 +4,7 @@
 //! Also serves the built frontend (`frontend/dist`) at `/`.
 
 mod analyze;
+mod competition;
 mod conditions;
 mod error;
 mod idt;
@@ -29,6 +30,7 @@ fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/health", get(health))
         .route("/api/analyze", post(analyze::analyze))
+        .route("/api/competition", post(competition::competition))
         .route("/api/idt/token", post(idt::token))
         .route("/api/idt/run", post(idt::run))
         .layer(CorsLayer::permissive())

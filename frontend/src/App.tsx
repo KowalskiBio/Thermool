@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
-import { analyze, ApiError, type AnalyzeResponse, type Engine, type IdtKind } from './lib/api';
+import { analyze, ApiError, type AnalyzeResponse, type Engine, type EquilibriumSplit, type IdtKind } from './lib/api';
 import { conditionsKey, loadConditions, saveConditions, type Conditions } from './lib/conditions';
 import { cleanSequence } from './lib/format';
 import { EMPTY_CREDENTIALS, hasCredentials, loadCredentials, runIdt, type IdtCredentials } from './lib/idt';
 import ConditionsBar from './components/ConditionsBar';
-import IdtDialog from './components/IdtDialog';
+import SettingsDialog, { type SettingsTab } from './components/SettingsDialog';
 import type { IdtEntry } from './components/IdtButton';
 import PropertiesTable from './components/PropertiesTable';
 import SequenceField from './components/SequenceField';
+import StabilityPanel from './components/StabilityPanel';
 import StructurePanel from './components/StructurePanel';
 import { Spinner } from './components/ui';
 
@@ -46,6 +47,14 @@ function loadEngine(): Engine {
   }
 }
 
+function loadEquilibriumSplit(): EquilibriumSplit {
+  try {
+    return localStorage.getItem('thermool-equilibrium-split') === 'three-way' ? 'three-way' : 'two-way';
+  } catch {
+    return 'two-way';
+  }
+}
+
 const idtKey = (kind: IdtKind, c: Conditions, seq: string, partner?: string) => `${kind}|${conditionsKey(c)}|${seq}|${partner ?? ''}`;
 
 export default function App() {
@@ -55,11 +64,13 @@ export default function App() {
   const [showPartner, setShowPartner] = useState(false);
   const [conditions, setConditions] = useState<Conditions>(loadConditions);
   const [engine, setEngine] = useState<Engine>(loadEngine);
+  const [equilibriumSplit, setEquilibriumSplit] = useState<EquilibriumSplit>(loadEquilibriumSplit);
   const [result, setResult] = useState<{ data: AnalyzeResponse; conditions: Conditions } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [creds, setCreds] = useState<IdtCredentials>(EMPTY_CREDENTIALS);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>('engine');
   const [idt, setIdt] = useState<Record<string, IdtEntry>>({});
 
   useEffect(() => {
@@ -74,6 +85,13 @@ export default function App() {
       /* not remembered */
     }
   }, [engine]);
+  useEffect(() => {
+    try {
+      localStorage.setItem('thermool-equilibrium-split', equilibriumSplit);
+    } catch {
+      /* not remembered */
+    }
+  }, [equilibriumSplit]);
 
   const oligo = cleanSequence(seqText);
   const partner = showPartner ? cleanSequence(partnerText) : '';
@@ -117,7 +135,8 @@ export default function App() {
   const requestIdt = (kind: IdtKind) => {
     if (!result) return;
     if (!connected) {
-      setDialogOpen(true);
+      setSettingsTab('idt');
+      setSettingsOpen(true);
       return;
     }
     const { data, conditions: c } = result;
@@ -150,18 +169,20 @@ export default function App() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setDialogOpen(true)}
-                className={`inline-flex h-7 items-center gap-2 rounded-full border px-3 text-[12px] font-medium ${connected ? 'border-idt/40 text-idt' : 'border-line-strong text-ink-muted hover:text-ink'}`}
+                onClick={() => setSettingsOpen(true)}
+                title={connected ? `Settings (IDT connected, ${creds.region.toUpperCase()})` : 'Settings'}
+                aria-label="Settings"
+                className="relative inline-flex size-7 items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink"
               >
-                <span className={`size-1.5 rounded-full ${connected ? 'bg-idt' : 'bg-ink-faint'}`} />
-                {connected ? `IDT · ${creds.region.toUpperCase()}` : 'Connect IDT'}
+                <GearIcon />
+                {connected && <span className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-idt" aria-label="IDT connected" />}
               </button>
               <button type="button" onClick={() => setTheme(nextTheme[theme])} title={`Theme: ${theme}`} aria-label={`Theme: ${theme}`} className="inline-flex size-7 items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink">
                 <ThemeIcon theme={theme} />
               </button>
             </div>
           </div>
-          <ConditionsBar value={conditions} onChange={setConditions} engine={engine} onEngineChange={setEngine} />
+          <ConditionsBar value={conditions} onChange={setConditions} />
         </div>
       </header>
 
@@ -236,6 +257,14 @@ export default function App() {
                 idtConnected={connected}
               />
             </div>
+            <StabilityPanel
+              sequence={data.oligo.sequence}
+              partner={data.partner?.sequence ?? null}
+              conditions={result.conditions}
+              engine={engine}
+              split={equilibriumSplit}
+              onAddPartner={() => setShowPartner(true)}
+            />
             <StructurePanel result={data} getIdt={getIdt} onIdt={requestIdt} idtConnected={connected} onAddPartner={() => setShowPartner(true)} />
           </div>
         ) : (
@@ -247,7 +276,7 @@ export default function App() {
                 <>
                   Paste a sequence to see its Tm, GC content, hairpins and dimers.
                   <br />
-                  Add a partner for the heterodimer. Connect IDT to compare each result with OligoAnalyzer.
+                  Add a partner for the heterodimer. Connect IDT in settings to compare each result with OligoAnalyzer.
                 </>
               )}
             </div>
@@ -257,12 +286,32 @@ export default function App() {
 
       <footer className="border-t border-line">
         <div className="mx-auto max-w-5xl px-4 py-4 text-[11px] leading-relaxed text-ink-faint sm:px-6">
-          Strider (native Rust, via Primerool): SantaLucia &amp; Hicks 2004 nearest-neighbour duplex Tm with Owczarzy Na⁺/Mg²⁺ correction (Mg²⁺ net of dNTPs); hairpins and dimers folded and scored with {engine === 'mathews' ? 'Mathews 2004' : 'SantaLucia 2004'} parameters, ranked suboptimal structures. IDT values come from IDT OligoAnalyzer under the same conditions.
+          Strider (native Rust, vendored in this repo): SantaLucia &amp; Hicks 2004 nearest-neighbour duplex Tm with Owczarzy Na⁺/Mg²⁺ correction (Mg²⁺ net of dNTPs); hairpins and dimers folded and scored with {engine === 'mathews' ? 'Mathews 2004' : 'SantaLucia 2004'} parameters, ranked suboptimal structures. IDT values come from IDT OligoAnalyzer under the same conditions.
         </div>
       </footer>
 
-      <IdtDialog open={dialogOpen} credentials={creds} onClose={() => setDialogOpen(false)} onSaved={setCreds} />
+      <SettingsDialog
+        open={settingsOpen}
+        tab={settingsTab}
+        onTabChange={setSettingsTab}
+        onClose={() => setSettingsOpen(false)}
+        engine={engine}
+        onEngineChange={setEngine}
+        equilibriumSplit={equilibriumSplit}
+        onEquilibriumSplitChange={setEquilibriumSplit}
+        credentials={creds}
+        onCredentialsSaved={setCreds}
+      />
     </div>
+  );
+}
+
+function GearIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
   );
 }
 
