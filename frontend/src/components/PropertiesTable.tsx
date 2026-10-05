@@ -44,16 +44,20 @@ export default function PropertiesTable({ strands, onIdt, idtConnected }: Props)
                   return (
                     <div key={st.label} title={st.hint}>
                       <div className="label mb-1">{st.label}</div>
-                      <div className="font-mono text-[28px] font-medium leading-tight tabular-nums text-ink sm:text-[34px]">
-                        {st.strider(s.props) ?? <span className="text-ink-faint">n/a</span>}
-                        <span className="ml-1.5 text-[14px] font-normal text-ink-faint">{st.unit}</span>
+                      <div className="flex flex-wrap items-baseline gap-x-3 font-mono leading-tight tabular-nums">
+                        <span className="text-[28px] font-medium text-ink sm:text-[34px]">
+                          {st.strider(s.props) ?? <span className="text-ink-faint">n/a</span>}
+                          <span className="ml-1.5 text-[14px] font-normal text-ink-faint">{st.unit}</span>
+                        </span>
+                        {s.idt && (
+                          <span className="whitespace-nowrap text-[20px] font-medium text-idt sm:text-[24px]">
+                            <span className="mr-3 hidden font-normal text-line-strong sm:inline">|</span>
+                            <span className="mr-1.5 text-[11px] font-normal uppercase tracking-wider">IDT</span>
+                            {s.idt.status === 'loading' ? '…' : idtValue !== null ? idtValue : <span className="text-ink-faint">n/a</span>}
+                            {idtValue !== null && <span className="ml-1.5 text-[13px] font-normal">{st.unit}</span>}
+                          </span>
+                        )}
                       </div>
-                      {s.idt && (
-                        <div className="mt-1.5 font-mono text-[18px] font-medium tabular-nums text-idt">
-                          <span className="mr-2 text-[12px] font-normal uppercase tracking-wider">IDT</span>
-                          {s.idt.status === 'loading' ? '…' : idtValue !== null ? `${idtValue} ${st.unit}` : <span className="text-ink-faint">n/a</span>}
-                        </div>
-                      )}
                     </div>
                   );
                 })}
