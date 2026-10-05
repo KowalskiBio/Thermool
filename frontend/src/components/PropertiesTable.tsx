@@ -15,13 +15,15 @@ interface Props {
   idtConnected: boolean;
 }
 
-const STATS: { label: string; unit: string; strider: (p: Properties) => string | null; idt: (i: IdtProps) => string | null; hint?: string }[] = [
-  { label: 'Length', unit: 'nt', strider: (p) => String(p.length), idt: (i) => fmt(i.length, 0) },
-  { label: 'GC content', unit: '%', strider: (p) => fmt(p.gc_percent, 1), idt: (i) => fmt(i.gc, 1) },
+// Length and GC are pure sequence facts, identical in both tools, so only
+// Tm gets an IDT value beside it.
+const STATS: { label: string; unit: string; strider: (p: Properties) => string | null; idt?: (i: IdtProps) => string | null; hint?: string }[] = [
+  { label: 'Length', unit: 'nt', strider: (p) => String(p.length) },
+  { label: 'GC content', unit: '%', strider: (p) => fmt(p.gc_percent, 1) },
   { label: 'Tm', unit: '°C', strider: (p) => fmt(p.tm, 1), idt: (i) => fmt(i.tm, 1), hint: 'Duplex with the perfect complement at the set conditions' },
 ];
 
-/** The headline numbers: length, GC and Tm, large, with IDT's beside them. */
+/** The headline numbers: length, GC and Tm, large, with IDT's Tm beside Strider's. */
 export default function PropertiesTable({ strands, onIdt, idtConnected }: Props) {
   const entries = strands.map((s) => s.idt);
   const state = combine(entries);
@@ -40,7 +42,7 @@ export default function PropertiesTable({ strands, onIdt, idtConnected }: Props)
               {strands.length > 1 && <div className="mb-2 text-[12px] font-medium text-ink-muted">{s.label}</div>}
               <div className="grid grid-cols-3 gap-4">
                 {STATS.map((st) => {
-                  const idtValue = idt ? st.idt(idt) : null;
+                  const idtValue = idt && st.idt ? st.idt(idt) : null;
                   return (
                     <div key={st.label} title={st.hint}>
                       <div className="label mb-1">{st.label}</div>
@@ -49,7 +51,7 @@ export default function PropertiesTable({ strands, onIdt, idtConnected }: Props)
                           {st.strider(s.props) ?? <span className="text-ink-faint">n/a</span>}
                           <span className="ml-1.5 text-[14px] font-normal text-ink-faint">{st.unit}</span>
                         </span>
-                        {s.idt && (
+                        {s.idt && st.idt && (
                           <span className="whitespace-nowrap text-[20px] font-medium text-idt sm:text-[24px]">
                             <span className="mr-3 hidden font-normal text-line-strong sm:inline">|</span>
                             <span className="mr-1.5 text-[11px] font-normal uppercase tracking-wider">IDT</span>
