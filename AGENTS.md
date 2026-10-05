@@ -32,6 +32,6 @@ Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/do
 ## Deployment
 
 - The VM is reached via the SSH alias `proxmox1` (`ssh proxmox1`).
-- Source checkout: `~/thermool-src/Thermool`, next to `~/thermool-src/Primerool` (a symlink to `~/primerool-src`, the deployed Primerool). The live deployment is `~/Thermool` (systemd `--user` `thermool.service`, `127.0.0.1:8003`).
-- To deploy: push the branch, then run `ssh proxmox1 'cd ~/thermool-src/Thermool && ./scripts/deploy_vm.sh'`. It fast-forwards from `origin`, builds (sharing Primerool's `target/` to save disk), backs up the live dir, health-checks, and rolls back on failure.
+- Source checkout: `~/thermool-src/Thermool` (fully self-contained: the Strider thermodynamics core is vendored in `crates/thermo-core`). The live deployment is `~/Thermool` (systemd `--user` `thermool.service`, `127.0.0.1:8003`).
+- To deploy: push the branch, then run `ssh proxmox1 'cd ~/thermool-src/Thermool && ./scripts/deploy_vm.sh'`. It fast-forwards from `origin`, builds (own `target/`), backs up the live dir, health-checks, and rolls back on failure.
 - Not yet public: needs a DNS name, an nginx site proxying to `127.0.0.1:8003`, and a certificate (sudo on the VM).

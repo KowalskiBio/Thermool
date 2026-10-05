@@ -89,10 +89,9 @@
 
 ## Quick start
 
-Thermool needs **Rust**, **Node.js**, and a [**Primerool**](https://github.com/KowalskiBio/Primerool) checkout next to it: Thermool builds against Primerool's `engine` and `thermo-core` crates, the native Rust port of Strider.
+Thermool needs **Rust** and **Node.js**. It is fully self-contained: the Strider thermodynamics core (a native Rust port, vendored from Primerool) lives in `crates/thermo-core`.
 
 ```bash
-git clone https://github.com/KowalskiBio/Primerool.git
 git clone https://github.com/KowalskiBio/Thermool.git
 cd Thermool
 
@@ -227,7 +226,7 @@ Thermool/
 
 ## Acknowledgements
 
-- [**Strider**](https://github.com/EmilioVenegas/strider) by Emilio Venegas (MIT): the thermodynamics, here through Primerool's Rust port.
+- [**Strider**](https://github.com/EmilioVenegas/strider) by Emilio Venegas (MIT): the thermodynamics, via its native Rust port vendored into `crates/thermo-core`.
 - [**Primerool**](https://github.com/KowalskiBio/Primerool) and [**Oligool**](https://github.com/KowalskiBio/Oligool): the engine, structure drawings and IDT integration Thermool builds on.
 - **IDT OligoAnalyzer**, used through your own IDT account and API access.
 - SantaLucia & Hicks (2004) *Annu. Rev. Biophys. Biomol. Struct.* 33:415; Mathews et al. (2004) *PNAS* 101:7287; Owczarzy et al. (2008) *Biochemistry* 47:5336.

@@ -4,9 +4,8 @@
 # ~/Thermool/frontend/dist on 127.0.0.1:8003). Modelled on Primerool's
 # scripts/deploy_vm.sh.
 #
-# Expected layout (Thermool builds against Primerool's crates via ../Primerool):
-#   ~/thermool-src/Thermool    this checkout
-#   ~/thermool-src/Primerool   symlink to ~/primerool-src (the deployed Primerool)
+# Expected layout:
+#   ~/thermool-src/Thermool    this checkout (fully self-contained)
 #
 # Run from inside the checkout: ./scripts/deploy_vm.sh
 #
@@ -21,8 +20,8 @@ BACKUP_DIR="$HOME/Thermool.autobak.$(date +%Y%m%d-%H%M%S)"
 SERVICE="thermool.service"
 HEALTH_URL="http://127.0.0.1:8003/api/health"
 KEEP_BACKUPS=3
-# Share Primerool's build directory: same dependencies, far less disk.
-export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$HOME/primerool-src/target}"
+# Own build directory: Thermool no longer shares Primerool's.
+export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$SRC_DIR/target}"
 
 [ -x "$HOME/.cargo/bin/cargo" ] && export PATH="$HOME/.cargo/bin:$PATH"
 
@@ -34,14 +33,14 @@ if [ -n "$(git status --porcelain)" ]; then
   git status --short
   exit 1
 fi
-[ -d "$SRC_DIR/../Primerool/crates/thermo-core" ] || { echo "ERROR: ../Primerool (Primerool checkout) not found next to $SRC_DIR" >&2; exit 1; }
+[ -d "$SRC_DIR/crates/thermo-core" ] || { echo "ERROR: vendored thermo-core not found in $SRC_DIR" >&2; exit 1; }
 
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 echo "==> Fast-forwarding $BRANCH from origin"
 git fetch origin "$BRANCH"
 git merge --ff-only "origin/$BRANCH"
 COMMIT="$(git rev-parse --short HEAD)"
-echo "==> Deploying $BRANCH @ $COMMIT (Primerool @ $(git -C ../Primerool rev-parse --short HEAD))"
+echo "==> Deploying $BRANCH @ $COMMIT"
 
 echo "==> Building server (release)"
 cargo build --release --bin thermool

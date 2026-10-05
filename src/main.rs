@@ -7,6 +7,7 @@ mod analyze;
 mod conditions;
 mod error;
 mod idt;
+mod structure_variant;
 
 use axum::routing::{get, post};
 use axum::{Json, Router};

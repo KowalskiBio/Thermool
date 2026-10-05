@@ -1,0 +1,12 @@
+[package]
+name = "thermo-core"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Vojtech Rejtar <rejtarv@gmail.com>"]
+description = "Plain-Rust DNA thermodynamics core (Tm, salt corrections, dimer/hairpin ΔG), ported from Strider's native/ crate with PyO3 stripped out. Vendored into Thermool from Primerool @ e2fd5fc."
+
+[dependencies]
+thiserror = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

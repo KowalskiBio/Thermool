@@ -1,3 +1,7 @@
+[workspace]
+members = ["crates/thermo-core"]
+resolver = "2"
+
 [package]
 name = "thermool"
 version = "0.1.0"
@@ -17,6 +21,5 @@ tower-http = { version = "0.6", features = ["cors", "fs"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 reqwest = { version = "0.12", features = ["json"] }
-# Strider, as packaged by Primerool (sibling checkout).
-engine = { path = "../Primerool/crates/engine" }
-thermo-core = { path = "../Primerool/crates/thermo-core" }
+# Strider, vendored into this repo (crates/thermo-core).
+thermo-core = { path = "crates/thermo-core" }

@@ -1,8 +1,18 @@
 //! Reaction conditions, in IDT OligoAnalyzer's own units so the numbers a
 //! user types (or pastes from IDT) go to both engines unchanged.
 
-use engine::ThermoParams;
 use serde::Deserialize;
+
+/// Reaction conditions in the units the folding code expects:
+/// monovalent/divalent/dNTP in mM, strand in nM (Primerool's engine
+/// convention, kept when Thermool took ownership of the thermodynamics).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ThermoParams {
+    pub mv_conc: f64,
+    pub dv_conc: f64,
+    pub dntp_conc: f64,
+    pub dna_conc: f64,
+}
 
 #[derive(Debug, Clone, Copy, Deserialize)]
 #[serde(default)]

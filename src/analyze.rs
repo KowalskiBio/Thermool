@@ -3,7 +3,7 @@
 //! self-dimer and heterodimer structures in both of Strider's models.
 
 use axum::Json;
-use engine::structure_variant::{analyze_structure_in, FullStructureAnalysis};
+use crate::structure_variant::{analyze_structure_in, FullStructureAnalysis};
 use thermo_core::mathews2004::ParamSetId;
 use serde::{Deserialize, Serialize};
 
@@ -36,7 +36,7 @@ pub enum Engine {
 }
 
 impl Engine {
-    fn param_set(self) -> ParamSetId {
+    pub fn param_set(self) -> ParamSetId {
         match self {
             Engine::Mathews => ParamSetId::Mathews2004,
             Engine::Santalucia => ParamSetId::SantaLucia2004,
