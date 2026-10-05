@@ -4,7 +4,8 @@ import { dgLevel, fmt, fmtTm, LEVEL_TEXT } from '../lib/format';
 import { matchIdt, readStructures, type IdtStructure } from '../lib/idtResult';
 import DuplexSvg from './DuplexSvg';
 import IdtButton, { IdtErrors, Unreadable, combine, type IdtEntry } from './IdtButton';
-import StriderStructure from './StriderStructure';
+import StriderStructure, { type ColorBy } from './StriderStructure';
+import { ELEMENT_COLORS, ELEMENT_LABELS } from '../lib/elements';
 import { Button, Segmented, Val } from './ui';
 
 type Tab = 'hairpin' | 'self_dimer' | 'hetero_dimer';
@@ -39,6 +40,21 @@ export default function StructurePanel({ result, getIdt, onIdt, idtConnected, on
   const [tab, setTab] = useState<Tab>('hairpin');
   const [model, setModel] = useState<Model>('with_bulge');
   const [view, setView] = useState<DimerView>('duplex');
+  const [colorBy, setColorByState] = useState<ColorBy>(() => {
+    try {
+      return localStorage.getItem('thermool-structure-color') === 'structure' ? 'structure' : 'base';
+    } catch {
+      return 'base';
+    }
+  });
+  const setColorBy = (c: ColorBy) => {
+    setColorByState(c);
+    try {
+      localStorage.setItem('thermool-structure-color', c);
+    } catch {
+      /* not remembered */
+    }
+  };
 
   const oligo = result.oligo.sequence;
   const partner = result.partner?.sequence;
@@ -79,6 +95,15 @@ export default function StructurePanel({ result, getIdt, onIdt, idtConnected, on
         <div className="flex flex-wrap items-center gap-2 pb-2">
           {dimer && <Segmented label="Dimer drawing" value={view} onChange={setView} options={[{ value: 'duplex', label: 'Duplex' }, { value: 'fold', label: 'Fold' }]} />}
           <Segmented
+            label="Base colour"
+            value={colorBy}
+            onChange={setColorBy}
+            options={[
+              { value: 'base', label: 'Bases', title: 'Colour each base by nucleotide (A, C, G, T)' },
+              { value: 'structure', label: 'Structure', title: 'Colour each base by its structural element: stem, hairpin loop, interior loop or bulge, multiloop, exterior' },
+            ]}
+          />
+          <Segmented
             label="Strider model"
             value={model}
             onChange={setModel}
@@ -99,8 +124,18 @@ export default function StructurePanel({ result, getIdt, onIdt, idtConnected, on
       ) : (
         <>
           <IdtErrors entries={idtEntries} />
+          {colorBy === 'structure' && (
+            <div className="flex flex-wrap gap-x-4 gap-y-1 pt-3 text-[12px] text-ink-muted">
+              {ELEMENT_LABELS.filter(([el]) => (dimer ? el !== 'hairpin' && el !== 'multiloop' : true)).map(([el, label]) => (
+                <span key={el} className="inline-flex items-center gap-1.5">
+                  <span className="size-2.5 rounded-full" style={{ background: ELEMENT_COLORS[el] }} />
+                  {label}
+                </span>
+              ))}
+            </div>
+          )}
           {sections.map((s) => (
-            <StrandSection key={s.title} section={s} model={model} dimer={dimer} view={view} />
+            <StrandSection key={s.title} section={s} model={model} dimer={dimer} view={view} colorBy={colorBy} />
           ))}
           <p className="mt-4 text-[12px] leading-relaxed text-ink-faint">
             {dimer
@@ -114,7 +149,7 @@ export default function StructurePanel({ result, getIdt, onIdt, idtConnected, on
   );
 }
 
-function StrandSection({ section: s, model, dimer, view }: { section: Section; model: Model; dimer: boolean; view: DimerView }) {
+function StrandSection({ section: s, model, dimer, view, colorBy }: { section: Section; model: Model; dimer: boolean; view: DimerView; colorBy: ColorBy }) {
   const [rawOpen, setRawOpen] = useState(false);
   const candidates = s.structure[model].candidates;
   const idt = s.idt?.status === 'done' ? readStructures(s.idt.raw, s.seq1, s.seq2) : null;
@@ -158,7 +193,7 @@ function StrandSection({ section: s, model, dimer, view }: { section: Section; m
         <div className={`grid gap-3 ${dimer ? 'grid-cols-[repeat(auto-fill,minmax(min(26rem,100%),1fr))]' : 'grid-cols-[repeat(auto-fill,minmax(min(17rem,100%),1fr))]'}`}>
           {candidates.map((c, i) => (
             <Card key={`${model}-${i}`} rank={i + 1} c={c} idt={idtAt(i)} idtNote={idtNote(i)} level={level}>
-              <Figure s={s} c={c} dimer={dimer} view={view} />
+              <Figure s={s} c={c} dimer={dimer} view={view} colorBy={colorBy} />
             </Card>
           ))}
         </div>
@@ -236,11 +271,11 @@ function Card({ rank, c, idt, idtNote, level, children }: { rank: number; c: Str
   );
 }
 
-function Figure({ s, c, dimer, view }: { s: Section; c: StructureCandidate; dimer: boolean; view: DimerView }) {
+function Figure({ s, c, dimer, view, colorBy }: { s: Section; c: StructureCandidate; dimer: boolean; view: DimerView; colorBy: ColorBy }) {
   if (!dimer) {
-    return <StriderStructure sequence={s.seq1} structure={c.structure} title="Hairpin" fallback={null} />;
+    return <StriderStructure sequence={s.seq1} structure={c.structure} title="Hairpin" fallback={null} colorBy={colorBy} />;
   }
   const seq2 = s.seq2!;
-  const duplex = <DuplexSvg seq1={s.seq1} seq2={seq2} structure={c.structure} title={s.names ? 'Heterodimer' : 'Self-dimer'} />;
-  return view === 'duplex' ? duplex : <StriderStructure sequence={s.seq1 + seq2} nick={s.seq1.length} strandNames={s.names} structure={c.structure} title={s.names ? 'Heterodimer' : 'Self-dimer'} fallback={duplex} />;
+  const duplex = <DuplexSvg seq1={s.seq1} seq2={seq2} structure={c.structure} title={s.names ? 'Heterodimer' : 'Self-dimer'} colorBy={colorBy} />;
+  return view === 'duplex' ? duplex : <StriderStructure sequence={s.seq1 + seq2} nick={s.seq1.length} strandNames={s.names} structure={c.structure} title={s.names ? 'Heterodimer' : 'Self-dimer'} fallback={duplex} colorBy={colorBy} />;
 }

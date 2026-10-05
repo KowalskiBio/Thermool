@@ -10,6 +10,8 @@
  * fixed scale, so bases are the same size in every card.
  */
 import { openSvgInNewTab } from '../lib/openSvgTab';
+import { ELEMENT_COLORS, elementTypes } from '../lib/elements';
+import type { ColorBy } from './StriderStructure';
 
 interface Props {
   seq1: string;
@@ -17,6 +19,8 @@ interface Props {
   /** Dot-bracket over `seq1 + seq2` (no separator). */
   structure: string;
   title?: string;
+  /** Default 'base' (nucleotide palette). */
+  colorBy?: ColorBy;
 }
 
 // Strider's palette (`strider.viz.style`), as in `StriderStructure`.
@@ -87,7 +91,7 @@ function layout(n1: number, n2: number, pairs: [number, number][]): Layout {
 /** Overhang bases kept next to the paired region; longer ends collapse to "+N". */
 const FLANK = 4;
 
-export default function DuplexSvg({ seq1, seq2, structure, title = 'Dimer' }: Props) {
+export default function DuplexSvg({ seq1, seq2, structure, title = 'Dimer', colorBy = 'base' }: Props) {
   const s1 = seq1.toUpperCase();
   const s2 = seq2.toUpperCase();
   const pairs = interPairs(structure, s1.length);
@@ -97,6 +101,10 @@ export default function DuplexSvg({ seq1, seq2, structure, title = 'Dimer' }: Pr
   const n1 = s1.length;
   const n2 = s2.length;
   const L = layout(n1, n2, pairs);
+  const elements = colorBy === 'structure' ? elementTypes(structure, n1) : null;
+  // Fill per base: top by seq1 index, bottom by display index (3' to 5').
+  const topFill = (k: number) => (elements ? ELEMENT_COLORS[elements[k]] : (NT[s1[k]] ?? 'gray'));
+  const botFill = (d: number) => (elements ? ELEMENT_COLORS[elements[n1 + n2 - 1 - d]] : (NT[s2[n2 - 1 - d]] ?? 'gray'));
 
   // Visible ranges, each in its strand's left-to-right display order.
   // Top: seq1 indices. Bottom: display index d = n2 - 1 - j (3' to 5').
@@ -124,7 +132,7 @@ export default function DuplexSvg({ seq1, seq2, structure, title = 'Dimer' }: Pr
   const x = (c: number) => PAD_X + (c - minCol + leftExtra) * STEP;
 
   // One strand: backbone, balls, a "+N" stub for collapsed ends, end labels.
-  const strand = (seq: string, cols: number[], lo: number, hi: number, hideL: number, hideR: number, y: number, ends: [string, string], key: string) => {
+  const strand = (seq: string, fill: (k: number) => string, cols: number[], lo: number, hi: number, hideL: number, hideR: number, y: number, ends: [string, string], key: string) => {
     const els: React.ReactElement[] = [];
     for (let k = lo; k < hi; k++) els.push(<line key={`${key}bb${k}`} x1={x(cols[k])} y1={y} x2={x(cols[k + 1])} y2={y} stroke={BACKBONE} strokeWidth={1.8} strokeLinecap="round" />);
     let leftX = x(cols[lo]) - R;
@@ -144,7 +152,7 @@ export default function DuplexSvg({ seq1, seq2, structure, title = 'Dimer' }: Pr
     for (let k = lo; k <= hi; k++) {
       els.push(
         <g key={`${key}b${k}`}>
-          <circle cx={x(cols[k])} cy={y} r={R} fill={NT[seq[k]] ?? 'gray'} stroke={BALL_EDGE} strokeWidth={0.6} />
+          <circle cx={x(cols[k])} cy={y} r={R} fill={fill(k)} stroke={BALL_EDGE} strokeWidth={0.6} />
           <text x={x(cols[k])} y={y} textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={700} fill="#ffffff">
             {seq[k]}
           </text>
@@ -182,8 +190,8 @@ export default function DuplexSvg({ seq1, seq2, structure, title = 'Dimer' }: Pr
         const wobble = WOBBLE.has(s1[i] + s2[j]);
         return <line key={`r${i}`} x1={x(L.top[i])} y1={yTop + R + 1} x2={x(L.bottom[j])} y2={yBot - R - 1} stroke={RUNG} strokeWidth={2.4} strokeDasharray={wobble ? '3 3' : undefined} />;
       })}
-      {strand(s1, topCols, topLo, topHi, hidden.topL, hidden.topR, yTop, ["5'", "3'"], 't')}
-      {strand(s2Display, botColsByD, botLo, botHi, hidden.botL, hidden.botR, yBot, ["3'", "5'"], 'b')}
+      {strand(s1, topFill, topCols, topLo, topHi, hidden.topL, hidden.topR, yTop, ["5'", "3'"], 't')}
+      {strand(s2Display, botFill, botColsByD, botLo, botHi, hidden.botL, hidden.botR, yBot, ["3'", "5'"], 'b')}
     </svg>
   );
 }

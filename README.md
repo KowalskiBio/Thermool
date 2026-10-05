@@ -43,7 +43,7 @@
     </td>
     <td width="33%" valign="top">
       <h3>Structures you can see</h3>
-      The five most stable hairpins, self-dimers and heterodimers, ranked, each drawn as a Strider fold or a duplex with ΔG, Tm and its share of the population.
+      The five most stable hairpins, self-dimers and heterodimers, ranked, each drawn as a Strider fold or a duplex with ΔG, Tm and its share of the population. Colour bases by nucleotide or by structure: stem, loop, bulge, dangling end.
     </td>
     <td width="33%" valign="top">
       <h3>IDT next to Strider</h3>

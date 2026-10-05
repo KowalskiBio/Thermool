@@ -14,8 +14,14 @@
 import { useMemo, useSyncExternalStore, type ReactNode } from 'react';
 import { openSvgInNewTab } from '../lib/openSvgTab';
 import { layoutStructure, parsePairs, type Pair, type Pt } from '../lib/striderLayout';
+import { ELEMENT_COLORS, elementTypes } from '../lib/elements';
+
+/** Base colouring: by nucleotide, or by secondary-structure element. */
+export type ColorBy = 'base' | 'structure';
 
 interface Props {
+  /** Default 'base' (nucleotide palette). */
+  colorBy?: ColorBy;
   /** One strand, or both strands of a dimer concatenated (no separator). */
   sequence: string;
   /** Dot-bracket over `sequence`. */
@@ -243,7 +249,8 @@ function buildFigure(sequence: string, structure: string, nick: number | undefin
   return { seq, coords: xy, backbone: layout.backbone, rungs: layout.rungs, crossing: layout.crossing, labels, box: { x: minX * S, y: -maxY * S, w: (maxX - minX) * S, h: (maxY - minY) * S } };
 }
 
-export default function StriderStructure({ sequence, structure, nick, strandNames, fallback, title = 'Secondary structure' }: Props) {
+export default function StriderStructure({ sequence, structure, nick, strandNames, fallback, title = 'Secondary structure', colorBy = 'base' }: Props) {
+  const elements = useMemo(() => (colorBy === 'structure' ? elementTypes(structure.replace(/[&+]/g, ''), nick) : null), [colorBy, structure, nick]);
   const dark = useSyncExternalStore(subscribeTheme, isDark, () => false);
   const figure = useMemo(() => {
     try {
@@ -296,7 +303,7 @@ export default function StriderStructure({ sequence, structure, nick, strandName
       })}
       {xy.map((p, i) => (
         <g key={`n${i}`}>
-          <circle cx={X(p)} cy={Y(p)} r={RADIUS * S} fill={NT_COLORS[figure.seq[i]] ?? 'gray'} stroke={BALL_EDGE} strokeWidth={0.025 * S} />
+          <circle cx={X(p)} cy={Y(p)} r={RADIUS * S} fill={elements?.[i] ? ELEMENT_COLORS[elements[i]] : (NT_COLORS[figure.seq[i]] ?? 'gray')} stroke={BALL_EDGE} strokeWidth={0.025 * S} />
           <text x={X(p)} y={Y(p)} textAnchor="middle" dominantBaseline="central" fontSize={0.66 * S} fontWeight="bold" fill="#ffffff">
             {figure.seq[i]}
           </text>
