@@ -6,7 +6,7 @@ resolver = "2"
 name = "thermool"
 version = "0.1.0"
 edition = "2021"
-license = "MIT"
+license = "AGPL-3.0-or-later"
 authors = ["Vojtech Rejtar <rejtarv@gmail.com>"]
 description = "Single-oligo thermodynamics: Strider Tm, hairpins and dimers, with optional IDT OligoAnalyzer comparison."
 

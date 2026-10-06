@@ -231,6 +231,14 @@ Thermool/
 - **IDT OligoAnalyzer**, used through your own IDT account and API access.
 - SantaLucia & Hicks (2004) *Annu. Rev. Biophys. Biomol. Struct.* 33:415; Mathews et al. (2004) *PNAS* 101:7287; Owczarzy et al. (2008) *Biochemistry* 47:5336.
 
+## License
+
+Copyright (C) 2026 Vojtech Rejtar.
+
+Thermool is licensed under the [GNU Affero General Public License v3.0 or later](LICENSE) (AGPL-3.0-or-later). If you modify it and let others use it, including over a network, you must publish your modified source under the same license and keep the original copyright and attribution notices.
+
+`crates/thermo-core` is derived from Strider and stays under its own [MIT license](crates/thermo-core/LICENSE) (Copyright (c) 2026 Emilio Venegas).
+
 <br />
 
 <div align="center">
