@@ -241,9 +241,9 @@ fn unimolecular(ps: ParamSetId, seq: &str, c: &Conditions, temp_k: f64) -> UniPa
             best_report = Some(h);
         }
     }
-    let hairpin_w = (-best_dg_t / rt).exp();
-    let z = z.max(hairpin_w);
-    let neg_w = neg_w.max(hairpin_w);
+    // Only a stable fold counts as a hairpin: when even the best fold has
+    // dG(T) >= 0 it is a coil fluctuation and stays in the unfolded share.
+    let hairpin_w = if best_dg_t < 0.0 { (-best_dg_t / rt).exp() } else { 0.0 };
     let ensemble_dg = -rt * z.ln();
     let two_state_fraction = match best_report {
         Some(h) => {
@@ -497,6 +497,24 @@ mod tests {
             let uni = unimolecular(ParamSetId::Mathews2004, seq, &c, t + 273.15);
             assert!(uni.two_state_fraction <= prev + 1e-9, "not monotonic at {t}");
             prev = uni.two_state_fraction;
+        }
+    }
+
+    #[test]
+    fn hairpin_share_is_zero_when_no_fold_is_stable() {
+        // At 90 °C every fold of these sequences has dG(T) > 0, so the
+        // ensemble must not report any hairpin (it used to leak a few
+        // percent through the best positive-dG fold's Boltzmann weight).
+        let c = Conditions::default();
+        let tk = 90.0 + 273.15;
+        for seq in ["GCACTACAACCGCTACCGTG", "ATGACCATGATTACGCCAAGCTTGCATGCC"] {
+            let subs = hairpin_thermo_subopt_in(ParamSetId::Mathews2004, seq, HAIRPIN_ENUM_CAP, c.sodium_m(), c.free_magnesium_m(), 2);
+            assert!(subs.iter().all(|h| dg_at_t(h.dh, h.ds, tk) >= 0.0), "{seq} still has a stable fold at 90 C");
+            let uni = unimolecular(ParamSetId::Mathews2004, seq, &c, tk);
+            assert_eq!(uni.hairpin_fraction, 0.0, "{seq}");
+            assert!(close(uni.unfolded_fraction, 1.0, 1e-12), "{seq} unfolded={}", uni.unfolded_fraction);
+            let comp = compute_competition(seq, None, &c, ParamSetId::Mathews2004, tk).oligo;
+            assert_eq!(comp.p_hairpin, 0.0, "{seq}");
         }
     }
 
