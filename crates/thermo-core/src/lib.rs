@@ -6,6 +6,13 @@
 //! dev-dependency) was not copied. No formula or code changes were made
 //! during the copy.
 //!
+//! Thermool divergences since the copy (port upstream deliberately):
+//! - `structure_thermo::hairpin_exterior_dangle_bonus` picks the dangle
+//!   side once by ΔG₃₇ and reuses it for ΔH (upstream picked per mode).
+//! - Homodimer subopt lists (`thermo::dimer_thermo*_subopt_in`) drop the
+//!   strand-swapped mirror of a structure already listed, and
+//!   `DimerThermo::symmetric` flags self-mirror complexes.
+//!
 //! De-PyO3'd fork of `strider/native/src/{lib,dimer,tables,tables_dna}.rs`
 //! (MIT, by Emilio Venegas; see LICENSE in this crate) — Strider's crate is `crate-type = ["cdylib"]` only
 //! and every public function is PyO3-bound, so it cannot be linked into a

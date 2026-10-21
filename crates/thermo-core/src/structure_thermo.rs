@@ -152,25 +152,25 @@ pub(crate) fn terminal_pair_penalty(p: &Params, mode: Mode, seq: &[u8], i: usize
 /// pick a longer stem that engulfs bases which would have dangled more
 /// favorably left unpaired; verified against the real fork on `GGGGAAACCCC`-
 /// and `AATACATTTTTATGATT`-shaped sequences).
+///
+/// The side is always chosen by ΔG₃₇ (the physical choice of which base
+/// stacks), and `mode` only selects which table value of *that* dangle is
+/// returned. Choosing independently per mode could pair the ΔG of the 5'
+/// dangle with the ΔH of the 3' one, corrupting the derived ΔS and Tm
+/// (Thermool divergence from upstream, see `lib.rs`).
 pub(crate) fn hairpin_exterior_dangle_bonus(p: &Params, mode: Mode, seq: &[u8], io: usize, jo: usize) -> f64 {
-    let mut best = 0.0f64;
-    if io >= 1 {
-        let key = format!("{}{}{}", c(seq, io), c(seq, jo), c(seq, io - 1));
-        if let Some(d5) = p.dangle_5(mode, &key) {
-            if d5 < best {
-                best = d5;
-            }
-        }
-    }
-    if jo + 1 < seq.len() {
-        let key = format!("{}{}{}", c(seq, jo - 1), c(seq, jo), c(seq, jo + 1));
-        if let Some(d3) = p.dangle_3(mode, &key) {
-            if d3 < best {
-                best = d3;
-            }
-        }
-    }
-    best
+    let key5 = (io >= 1).then(|| format!("{}{}{}", c(seq, io), c(seq, jo), c(seq, io - 1)));
+    let key3 = (jo + 1 < seq.len()).then(|| format!("{}{}{}", c(seq, jo - 1), c(seq, jo), c(seq, jo + 1)));
+    let d5 = key5.as_deref().and_then(|k| p.dangle_5(Mode::Dg, k)).filter(|&v| v < 0.0);
+    let d3 = key3.as_deref().and_then(|k| p.dangle_3(Mode::Dg, k)).filter(|&v| v < 0.0);
+    let use_5 = match (d5, d3) {
+        (Some(a), Some(b)) => a <= b,
+        (Some(_), None) => true,
+        (None, Some(_)) => false,
+        (None, None) => return 0.0,
+    };
+    let value = if use_5 { key5.as_deref().and_then(|k| p.dangle_5(mode, k)) } else { key3.as_deref().and_then(|k| p.dangle_3(mode, k)) };
+    value.unwrap_or(0.0)
 }
 
 /// `_sum_elements`: per-element energy of a single hairpin, `pairs`
@@ -367,6 +367,42 @@ mod tests {
     fn parse_hairpin_pairs_accepts_nested_stem() {
         let pairs = parse_hairpin_pairs("((...))").unwrap();
         assert_eq!(pairs, vec![(0, 6), (1, 5)]);
+    }
+
+    #[test]
+    fn hairpin_dangle_dh_belongs_to_the_dg_chosen_side() {
+        // Regression: the ΔH walk used to pick its own best dangle, so a fold
+        // could carry the 5' dangle's ΔG with the 3' dangle's ΔH.
+        use crate::mathews2004::ParamSetId;
+        let p = ParamSetId::Mathews2004.params();
+        let mut st: u64 = 12345;
+        let mut checked = 0;
+        for _ in 0..200 {
+            let seq: Vec<u8> = (0..25)
+                .map(|_| {
+                    st = st.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                    b"ACGT"[(st >> 33) as usize % 4]
+                })
+                .collect();
+            let Some((_, pairs)) = crate::mathews2004_fold::hairpin_mfe_mathews(p, &seq, 2) else { continue };
+            let (io, jo) = pairs[0];
+            let key5 = (io >= 1).then(|| format!("{}{}{}", c(&seq, io), c(&seq, jo), c(&seq, io - 1)));
+            let key3 = (jo + 1 < seq.len()).then(|| format!("{}{}{}", c(&seq, jo - 1), c(&seq, jo), c(&seq, jo + 1)));
+            let dg5 = key5.as_deref().and_then(|k| p.dangle_5(Mode::Dg, k)).filter(|&v| v < 0.0);
+            let dg3 = key3.as_deref().and_then(|k| p.dangle_3(Mode::Dg, k)).filter(|&v| v < 0.0);
+            let expected_dh = match (dg5, dg3) {
+                (None, None) => 0.0,
+                (Some(a), Some(b)) if a <= b => key5.as_deref().and_then(|k| p.dangle_5(Mode::Dh, k)).unwrap_or(0.0),
+                (Some(_), None) => key5.as_deref().and_then(|k| p.dangle_5(Mode::Dh, k)).unwrap_or(0.0),
+                _ => key3.as_deref().and_then(|k| p.dangle_3(Mode::Dh, k)).unwrap_or(0.0),
+            };
+            let dh_dangle = sum_hairpin_elements(p, Mode::Dh, &seq, &pairs, 2) - sum_hairpin_elements(p, Mode::Dh, &seq, &pairs, 0);
+            let dg_dangle = sum_hairpin_elements(p, Mode::Dg, &seq, &pairs, 2) - sum_hairpin_elements(p, Mode::Dg, &seq, &pairs, 0);
+            assert!((dh_dangle - expected_dh).abs() < 1e-9, "{}: dH dangle {dh_dangle} != {expected_dh}", String::from_utf8_lossy(&seq));
+            assert!((dg_dangle - dg5.into_iter().chain(dg3).fold(0.0, f64::min)).abs() < 1e-9);
+            checked += 1;
+        }
+        assert!(checked > 100);
     }
 
     #[test]

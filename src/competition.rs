@@ -6,10 +6,13 @@
 //!
 //! 1. **Partitions**: enumeration-based Boltzmann sums over suboptimal
 //!    folds (never a partition-function DP: the shares must agree with the
-//!    structures the cards show). Hairpins fold under the selected engine;
-//!    dimers always fold native SantaLucia, Oligool's rule, since mixing
-//!    parameter sets inside one equilibrium solve would be physically
-//!    incoherent.
+//!    structures the cards show). Hairpins and dimers both fold under the
+//!    selected engine, the same set the cards use. Oligool pinned dimers to
+//!    native SantaLucia to avoid mixing parameter sets in one solve, but
+//!    with Mathews hairpins that still mixed them, and it let the
+//!    self-dimer strip disagree with the self-dimer card by several
+//!    kcal/mol. Homodimer mirrors are enumerated once (thermo-core) and a
+//!    rotationally symmetric homodimer counts at half weight.
 //! 2. **Rescoring at temperature**: thermo-core's tables are dG37-based,
 //!    so every candidate is rescored as `dG(T) = dH - T·dS` (the same
 //!    relation `HairpinThermo::dg25` already uses) rather than refolded.
@@ -262,19 +265,22 @@ fn unimolecular(ps: ParamSetId, seq: &str, c: &Conditions, temp_k: f64) -> UniPa
 
 /// Bimolecular (self-dimer or heterodimer) partition: ensemble dG at
 /// `temp_k`, association term kept (the mass-action solve expects it).
-/// Always native SantaLucia parameters, per Oligool's dimers-always-native
-/// rule. Returns `None` when no dimer structure exists at all.
-fn bimolecular(seq1: &str, seq2: Option<&str>, c: &Conditions, temp_k: f64) -> Option<f64> {
+/// Same parameter set as the hairpins and the dimer cards. Returns `None`
+/// when no dimer structure exists at all.
+fn bimolecular(ps: ParamSetId, seq1: &str, seq2: Option<&str>, c: &Conditions, temp_k: f64) -> Option<f64> {
     let rt = R_GAS * temp_k;
-    let subs = dimer_thermo_subopt_in(ParamSetId::SantaLucia2004, seq1, seq2, DIMER_ENUM_CAP, c.sodium_m(), c.free_magnesium_m(), c.oligo_um * 1e-6, 0);
+    let subs = dimer_thermo_subopt_in(ps, seq1, seq2, DIMER_ENUM_CAP, c.sodium_m(), c.free_magnesium_m(), c.oligo_um * 1e-6, 0);
     // Dedup by dot-bracket (one alignment can enumerate twice), keep the
-    // best rescored dG per structure.
-    let mut states: HashMap<&str, f64> = HashMap::new();
+    // best rescored dG per structure. A symmetric homodimer is its own
+    // mirror, so it gets the 1/2 rotational-symmetry factor (the RT ln 2
+    // penalty SantaLucia applies to self-complementary duplexes).
+    let mut states: HashMap<&str, (f64, f64)> = HashMap::new();
     for d in &subs {
         let dg_t = dg_at_t(d.dh, d.ds, temp_k);
-        states.entry(d.structure.as_str()).and_modify(|e| *e = e.min(dg_t)).or_insert(dg_t);
+        let symmetry = if d.symmetric { 0.5 } else { 1.0 };
+        states.entry(d.structure.as_str()).and_modify(|e| e.0 = e.0.min(dg_t)).or_insert((dg_t, symmetry));
     }
-    let z: f64 = states.values().map(|&dg| (-dg / rt).exp()).sum();
+    let z: f64 = states.values().map(|&(dg, symmetry)| symmetry * (-dg / rt).exp()).sum();
     (z > 0.0).then(|| -rt * z.ln())
 }
 
@@ -314,9 +320,9 @@ fn compute_competition(seq: &str, partner: Option<&str>, c: &Conditions, ps: Par
 
     let uni_a = unimolecular(ps, seq, c, temp_k);
     let uni_b = partner.map(|p| unimolecular(ps, p, c, temp_k));
-    let self_a = bimolecular(seq, None, c, temp_k);
-    let self_b = partner.and_then(|p| bimolecular(p, None, c, temp_k));
-    let hetero = has_hetero.then(|| bimolecular(seq, partner, c, temp_k)).flatten();
+    let self_a = bimolecular(ps, seq, None, c, temp_k);
+    let self_b = partner.and_then(|p| bimolecular(ps, p, None, c, temp_k));
+    let hetero = has_hetero.then(|| bimolecular(ps, seq, partner, c, temp_k)).flatten();
 
     // Complex table: monomers first (the solver's mu initialization relies
     // on finding each strand's monomer), then the dimers. `strand_counts`
@@ -519,6 +525,26 @@ mod tests {
     }
 
     #[test]
+    fn dimer_partition_uses_the_selected_engine() {
+        // Regression: the strips always folded dimers with SantaLucia while
+        // the cards used the selected engine; for this oligo the best
+        // Mathews self-dimer is about -5.1 kcal/mol, SantaLucia's -1.2.
+        let c = Conditions::default();
+        let seq = "TAGCCACGGATATCTCCAGTGCTAC";
+        let t = 37.0 + 273.15;
+        for ps in [ParamSetId::Mathews2004, ParamSetId::SantaLucia2004] {
+            let card_best = dimer_thermo_subopt_in(ps, seq, None, 5, c.sodium_m(), c.free_magnesium_m(), c.oligo_um * 1e-6, 0)[0].dg37;
+            let ensemble = bimolecular(ps, seq, None, &c, t).expect("dimer folds");
+            // The ensemble is at least as stable as its best member, up to
+            // the RT ln 2 symmetry factor.
+            assert!(ensemble <= card_best + R_GAS * t * 2f64.ln() + 1e-9, "{ps:?}: ensemble {ensemble} vs card {card_best}");
+        }
+        let mw = compute_competition(seq, None, &c, ParamSetId::Mathews2004, t).oligo;
+        let sl = compute_competition(seq, None, &c, ParamSetId::SantaLucia2004, t).oligo;
+        assert!(mw.p_self_dimer > sl.p_self_dimer, "Mathews {} vs SantaLucia {}", mw.p_self_dimer, sl.p_self_dimer);
+    }
+
+    #[test]
     fn competition_splits_sum_to_one() {
         let c = Conditions::default();
         for t in [25.0, 60.0] {
@@ -554,7 +580,7 @@ mod tests {
         // itself, though, must rise monotonically toward zero.
         let mut prev = f64::NEG_INFINITY;
         for t in [15.0, 25.0, 40.0, 55.0, 65.0, 85.0] {
-            let dg = bimolecular(seq, None, &c, t + 273.15).expect("dimer folds");
+            let dg = bimolecular(ParamSetId::Mathews2004, seq, None, &c, t + 273.15).expect("dimer folds");
             assert!(dg > prev, "dimer ensemble dG must rise with temperature: {dg} at {t}C");
             prev = dg;
         }

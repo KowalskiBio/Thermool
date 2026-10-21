@@ -27,13 +27,15 @@ Port Oligool's equilibrium feature so Thermool stands on its own.
   dH/dS (same relation thermo-core already uses for dg25), not by
   temperature-parameterized refolding. Structures cards stay anchored at
   their 25/37 C reference temperatures, like Oligool.
-- Hairpin partition runs under the selected engine; dimer partitions
-  always SantaLucia native (Oligool's rule: no paramset mixing inside one
-  equilibrium solve).
+- Hairpin and dimer partitions both run under the selected engine, the
+  same set the structure cards use. (Oligool pinned dimers to SantaLucia,
+  which still mixed sets with Mathews hairpins and made the self-dimer
+  strip disagree with its card.) Homodimer mirrors count once; symmetric
+  homodimers at half weight.
 - Partition caps mirror Oligool: 20000 hairpin structures, 3000 dimer
   alignments, dedup dimers by dot-bracket, open state has weight 1.
 - Competition is a separate endpoint from `/api/analyze` so per-keystroke
   analysis stays fast; the frontend debounces it (500 ms) with a
   stale-response guard.
-- Vendored thermo-core stays unmodified; syncs from upstream Primerool
-  are deliberate, recorded in `crates/thermo-core/src/lib.rs`.
+- Vendored thermo-core changes are deliberate and recorded in
+  `crates/thermo-core/src/lib.rs` (Thermool divergences listed there).

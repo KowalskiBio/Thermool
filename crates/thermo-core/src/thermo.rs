@@ -211,6 +211,23 @@ pub struct DimerThermo {
     pub n_pairs: usize,
     pub structure: String,
     pub is_self_dimer: bool,
+    /// Homodimer whose structure equals its strand-swapped mirror (a
+    /// rotationally symmetric complex): it carries half the Boltzmann
+    /// weight of an asymmetric one in a partition sum.
+    pub symmetric: bool,
+}
+
+/// Canonical form of a homodimer structure: pairs as `(i, j_local)` on the
+/// two strands, compared with the mirror `(j_local, i)` you get by swapping
+/// which identical strand is "first". Both orientations describe the same
+/// physical complex, so subopt lists keep only one of them.
+fn homodimer_canonical(pairs: &[(usize, usize)], n1: usize) -> (Vec<(usize, usize)>, bool) {
+    let mut local: Vec<(usize, usize)> = pairs.iter().map(|&(i, j)| (i, j - n1)).collect();
+    let mut mirror: Vec<(usize, usize)> = local.iter().map(|&(i, j)| (j, i)).collect();
+    local.sort();
+    mirror.sort();
+    let symmetric = local == mirror;
+    (local.min(mirror), symmetric)
 }
 
 fn dimer_thermo_from_pairs(
@@ -245,6 +262,7 @@ fn dimer_thermo_from_pairs(
     let ln_term = if is_self_dimer { strand_conc_m.ln() } else { (strand_conc_m / 4.0).ln() };
     let tm_k = dh / (ds_kcal + R * ln_term);
 
+    let symmetric = is_self_dimer && homodimer_canonical(&pairs, n1).1;
     Ok(DimerThermo {
         tm_celsius: tm_k - 273.15,
         dh,
@@ -253,6 +271,7 @@ fn dimer_thermo_from_pairs(
         n_pairs: n,
         structure: dotbracket(bytes.len(), &pairs),
         is_self_dimer,
+        symmetric,
     })
 }
 
@@ -287,8 +306,10 @@ pub fn dimer_thermo_subopt_in(ps: ParamSetId, seq1: &str, seq2: Option<&str>, n:
 
     let candidates = dimer_mfe_candidates_mathews(p, s1.as_bytes(), s2.as_bytes());
 
+    let self_dimer = s1 == s2;
     let mut results = Vec::new();
     let mut seen_outer = std::collections::HashSet::new();
+    let mut seen_mirror = std::collections::HashSet::new();
     for (_, pairs) in candidates {
         if results.len() >= n {
             break;
@@ -302,6 +323,9 @@ pub fn dimer_thermo_subopt_in(ps: ParamSetId, seq1: &str, seq2: Option<&str>, n:
         }
         let mut sorted_pairs = pairs;
         sorted_pairs.sort();
+        if self_dimer && !seen_mirror.insert(homodimer_canonical(&sorted_pairs, s1.len()).0) {
+            continue;
+        }
         if let Ok(dt) = dimer_thermo_from_pairs(p, &s1, &s2, sorted_pairs, sodium_m, magnesium_m, strand_conc_m, dangles) {
             results.push(dt);
         }
@@ -378,8 +402,11 @@ pub fn dimer_thermo_no_bulge_subopt_in(ps: ParamSetId, seq1: &str, seq2: Option<
     let p = ps.params();
     let s1 = normalize(seq1);
     let s2 = seq2.map(normalize).unwrap_or_else(|| s1.clone());
+    let self_dimer = s1 == s2;
+    let mut seen_mirror = std::collections::HashSet::new();
     let mut results: Vec<DimerThermo> = dimer_no_bulge_candidates(s1.as_bytes(), s2.as_bytes())
         .into_iter()
+        .filter(|pairs| !self_dimer || seen_mirror.insert(homodimer_canonical(pairs, s1.len()).0))
         .filter_map(|pairs| dimer_thermo_from_pairs(p, &s1, &s2, pairs, sodium_m, magnesium_m, strand_conc_m, dangles).ok())
         .collect();
     results.sort_by(|a, b| a.dg37.partial_cmp(&b.dg37).unwrap());
@@ -469,5 +496,51 @@ mod tests {
         let results = dimer_thermo_subopt("ACGTACGTACGTACGT", None, 5, 0.05, 0.003, 250e-9, 0);
         assert!(!results.is_empty());
         assert!(results.len() <= 5);
+    }
+
+    fn pairs_of(structure: &str) -> Vec<(usize, usize)> {
+        let mut stack = Vec::new();
+        let mut pairs = Vec::new();
+        for (k, ch) in structure.chars().enumerate() {
+            match ch {
+                '(' => stack.push(k),
+                ')' => pairs.push((stack.pop().unwrap(), k)),
+                _ => {}
+            }
+        }
+        pairs
+    }
+
+    #[test]
+    fn homodimer_subopt_lists_each_mirror_pair_once() {
+        // Regression: swapping which identical strand is "first" gives the
+        // same complex, but both orientations used to be listed.
+        for seq in ["CGGGAGCGAGGGAGATTAGGTATAT", "TAGCCACGGATATCTCCAGTGCTAC", "GCACTACAACCGCTACCGTG"] {
+            let n1 = seq.len();
+            for list in [
+                dimer_thermo_subopt_in(ParamSetId::Mathews2004, seq, None, 3000, 0.05, 0.0022, 2e-7, 0),
+                dimer_thermo_no_bulge_subopt_in(ParamSetId::Mathews2004, seq, None, 3000, 0.05, 0.0022, 2e-7, 0),
+            ] {
+                assert!(!list.is_empty());
+                let keys: Vec<Vec<(usize, usize)>> = list.iter().map(|d| homodimer_canonical(&pairs_of(&d.structure), n1).0).collect();
+                let unique: std::collections::HashSet<_> = keys.iter().collect();
+                assert_eq!(unique.len(), keys.len(), "{seq}: mirror duplicates in homodimer subopt");
+            }
+        }
+    }
+
+    #[test]
+    fn heterodimer_subopt_keeps_both_orientations_distinct() {
+        // Two different strands: no mirror symmetry, nothing is dropped.
+        let d = dimer_thermo_subopt_in(ParamSetId::Mathews2004, "GCACTACAACCGCTACCGTG", Some("TCCAGGAGCTCGTTGTAGCC"), 5, 0.05, 0.0022, 2e-7, 0);
+        assert!(!d.is_empty());
+        assert!(d.iter().all(|x| !x.is_self_dimer && !x.symmetric));
+    }
+
+    #[test]
+    fn palindromic_homodimer_is_flagged_symmetric() {
+        let best = &dimer_thermo_subopt_in(ParamSetId::Mathews2004, "ACGTACGTACGT", None, 5, 0.05, 0.0022, 2e-7, 0)[0];
+        assert_eq!(best.structure, "(((((((((((())))))))))))");
+        assert!(best.symmetric);
     }
 }
