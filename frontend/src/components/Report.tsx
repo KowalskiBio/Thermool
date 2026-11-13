@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { DualStructure, Engine, StructureCandidate } from '../lib/api';
+import type { Engine, StructureCandidate } from '../lib/api';
 import type { Conditions } from '../lib/conditions';
 import { dgLevel, fmt, fmtTm, LEVEL_TEXT, parseOligo } from '../lib/format';
 import type { IdtCredentials } from '../lib/idt';
@@ -322,29 +322,28 @@ function StructureBlock({ title, note, best, kind, children, empty, idt }: { tit
   );
 }
 
-/** The other oligo forming the most stable heterodimer with `index`. */
-function strongestCross(report: Report, index: number): { j: number; d: DualStructure; best: StructureCandidate } | null {
-  let out: { j: number; d: DualStructure; best: StructureCandidate } | null = null;
-  report.entries.forEach((_, j) => {
-    if (j === index) return;
-    const d = crossOf(report, index, j);
-    const best = top(d);
-    if (d && best && (!out || best.dg < out.best.dg)) out = { j, d, best };
+/** The dimers `index` forms (self-dimer and every heterodimer folded),
+ * most stable first. */
+function dimersOf(report: Report, index: number): { j: number; best: StructureCandidate }[] {
+  const out: { j: number; best: StructureCandidate }[] = [];
+  report.entries.forEach((e, j) => {
+    const best = j === index ? top(e.structures.homodimer) : top(crossOf(report, index, j));
+    if (best) out.push({ j, best });
   });
-  return out;
+  return out.sort((a, b) => a.best.dg - b.best.dg);
 }
+
+/** Dimers drawn on an oligo page: the three most stable. */
+const DIMERS_SHOWN = 3;
+/** Report duplexes at 60% of the app's scale, so three fit under the hairpin. */
+const DIMER_SCALE = 0.6;
 
 function OligoPage({ report, index, page, pages }: { report: Report; index: number; page: number; pages: number }) {
   const e = report.entries[index];
   const p = e.props;
   const partner = e.partnerIndex !== undefined ? report.entries[e.partnerIndex] : undefined;
   const hairpin = top(e.structures.hairpin);
-  const self = top(e.structures.homodimer);
-  const partnerDimer = partner ? crossOf(report, index, e.partnerIndex!) : undefined;
-  const strongest = strongestCross(report, index);
-  // A pair primer shows its partner; anything else (or a pair primer whose
-  // worst cross-dimer is with another oligo) also shows the strongest one.
-  const showStrongest = strongest && strongest.j !== e.partnerIndex && (!partner || strongest.best.dg < (top(partnerDimer)?.dg ?? 0));
+  const dimers = dimersOf(report, index).slice(0, DIMERS_SHOWN);
 
   return (
     <Sheet report={report} page={page} pages={pages}>
@@ -381,24 +380,54 @@ function OligoPage({ report, index, page, pages }: { report: Report; index: numb
         <StructureBlock title="Hairpin" best={hairpin} kind="hairpin" empty="No stable hairpin." idt={e.idt && { e, fold: e.idt.hairpin }}>
           {hairpin && (
             <>
-              <StriderStructure sequence={p.sequence} structure={hairpin.structure} fallback={null} maxHeight={250} forceLight title={`${e.name} hairpin`} />
+              <StriderStructure sequence={p.sequence} structure={hairpin.structure} fallback={null} maxHeight={220} forceLight title={`${e.name} hairpin`} />
               <p className="mt-1 text-center font-mono text-[10px] tracking-[0.06em] text-ink-muted">{hairpin.structure}</p>
             </>
           )}
         </StructureBlock>
-        <StructureBlock title="Self-dimer" best={self} kind="dimer" empty="No stable self-dimer." idt={e.idt && { e, fold: e.idt.selfDimer }}>
-          {self && <DuplexSvg seq1={p.sequence} seq2={p.sequence} structure={self.structure} title={`${e.name} self-dimer`} />}
-        </StructureBlock>
-        {partner && (
-          <StructureBlock title="Heterodimer" note={`with ${partner.name}`} best={top(partnerDimer)} kind="dimer" empty="No stable heterodimer with the partner." idt={e.idt && { e, fold: e.idt.partner }}>
-            {partnerDimer && top(partnerDimer) && <DuplexSvg seq1={p.sequence} seq2={partner.props.sequence} structure={top(partnerDimer)!.structure} title={`${e.name} × ${partner.name}`} />}
-          </StructureBlock>
-        )}
-        {showStrongest && strongest && (
-          <StructureBlock title="Strongest cross-dimer" note={`with ${report.entries[strongest.j].name}`} best={strongest.best} kind="dimer" empty="">
-            <DuplexSvg seq1={p.sequence} seq2={report.entries[strongest.j].props.sequence} structure={strongest.best.structure} title={`${e.name} × ${report.entries[strongest.j].name}`} />
-          </StructureBlock>
-        )}
+        <section className="report-avoid rounded-md border border-line px-4 py-3">
+          <div className="mb-1 flex items-baseline gap-3">
+            <h3 className="text-[12.5px] font-semibold text-ink">Dimers</h3>
+            <span className="text-[11px] text-ink-muted">{dimers.length ? `${dimers.length === 1 ? 'The' : `The ${dimers.length}`} most stable, by ΔG37` : ''}</span>
+          </div>
+          {dimers.length === 0 ? (
+            <p className="py-1 text-[12px] italic text-ink-faint">No stable dimer.</p>
+          ) : (
+            <div className="divide-y divide-line">
+              {dimers.map(({ j, best }) => {
+                const other = report.entries[j];
+                const self = j === index;
+                const idtFold = !e.idt ? undefined : self ? e.idt.selfDimer : j === e.partnerIndex ? e.idt.partner : undefined;
+                const idtDg = e.idt && (self || j === e.partnerIndex) ? idtFoldText(e, idtFold, 'dg') : undefined;
+                return (
+                  <div key={j} className="report-avoid py-2 first:pt-1 last:pb-0">
+                    <div className="mb-1 flex flex-wrap items-baseline gap-x-4 text-[11.5px]">
+                      <span className="font-medium text-ink">{self ? 'Self-dimer' : `× ${other.name}`}</span>
+                      {!self && j === e.partnerIndex && <span className="text-[10.5px] text-ink-muted">pair partner</span>}
+                      <span className="ml-auto">
+                        <span className="mr-1 text-ink-muted">ΔG37</span>
+                        <span className={`font-mono font-medium tabular-nums ${dgClass(best.dg, 'dimer')}`}>{fmt(best.dg, 2)}</span>
+                        <span className="ml-1 text-[10px] text-ink-faint">kcal/mol</span>
+                      </span>
+                      <span>
+                        <span className="mr-1 text-ink-muted">Tm</span>
+                        <span className="font-mono tabular-nums">{fmtTm(best.tm)}</span>
+                        <span className="ml-1 text-[10px] text-ink-faint">°C</span>
+                      </span>
+                      {idtDg !== undefined && (
+                        <span className="font-mono tabular-nums text-idt">
+                          <span className="mr-1 font-sans text-[9px] font-medium uppercase tracking-wider">IDT</span>
+                          {idtDg === 'none' ? <span className="font-sans">none</span> : (idtDg ?? 'n/a')}
+                        </span>
+                      )}
+                    </div>
+                    <DuplexSvg seq1={p.sequence} seq2={other.props.sequence} structure={best.structure} scale={DIMER_SCALE} title={self ? `${e.name} self-dimer` : `${e.name} × ${other.name}`} />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
       </div>
     </Sheet>
   );

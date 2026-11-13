@@ -23,6 +23,8 @@ interface Props {
   colorBy?: ColorBy;
   /** Colours for bases and elements (user-customisable). */
   palette?: Palette;
+  /** Drawing size relative to the app's fixed scale (the report uses less). */
+  scale?: number;
 }
 
 const BACKBONE = '#8c8c8c';
@@ -91,7 +93,7 @@ function layout(n1: number, n2: number, pairs: [number, number][]): Layout {
 /** Overhang bases kept next to the paired region; longer ends collapse to "+N". */
 const FLANK = 4;
 
-export default function DuplexSvg({ seq1, seq2, structure, title = 'Dimer', colorBy = 'base', palette = DEFAULT_PALETTE }: Props) {
+export default function DuplexSvg({ seq1, seq2, structure, title = 'Dimer', colorBy = 'base', palette = DEFAULT_PALETTE, scale = 1 }: Props) {
   const s1 = seq1.toUpperCase();
   const s2 = seq2.toUpperCase();
   const pairs = interPairs(structure, s1.length);
@@ -176,8 +178,8 @@ export default function DuplexSvg({ seq1, seq2, structure, title = 'Dimer', colo
   return (
     <svg
       viewBox={`${-leftPad} 0 ${W + leftPad + rightPad} ${H}`}
-      width={W + leftPad + rightPad}
-      height={H}
+      width={(W + leftPad + rightPad) * scale}
+      height={H * scale}
       style={{ maxWidth: '100%', height: 'auto' }}
       className="mx-auto block cursor-zoom-in"
       role="button"
