@@ -1,6 +1,8 @@
 import { analyze, type DualStructure, type Engine, type FullStructureAnalysis, type Properties, type StructureCandidate } from './api';
 import type { Conditions } from './conditions';
 import { parseOligo } from './format';
+import { runIdt, type IdtCredentials } from './idt';
+import { readAnalyze, readStructures } from './idtResult';
 import { forwardName, reverseName, roleOf, type OligoRole, type SavedOligo } from './savedOligos';
 
 /** One oligo on its own report page. */
@@ -16,9 +18,27 @@ export interface ReportOligo {
   partnerIndex?: number;
 }
 
+/** IDT's most stable structure; `null` when IDT found none. */
+export interface IdtFold {
+  dg: number | null;
+  tm: number | null;
+}
+
+/** IDT OligoAnalyzer values for one oligo. A field left `undefined` means
+ * that call failed (the report shows n/a and lists the error). */
+export interface IdtValues {
+  tm?: number | null;
+  hairpin?: IdtFold | null;
+  selfDimer?: IdtFold | null;
+  /** Heterodimer with its pair partner (pair primers only). */
+  partner?: IdtFold | null;
+}
+
 export interface ReportEntry extends ReportOligo {
   props: Properties;
   structures: FullStructureAnalysis;
+  /** Present when the report was built with IDT. */
+  idt?: IdtValues;
 }
 
 export interface Report {
@@ -31,7 +51,20 @@ export interface Report {
   conditions: Conditions;
   engine: Engine;
   createdAt: Date;
+  /** True when IDT values were requested. */
+  withIdt: boolean;
+  /** Messages from IDT calls that failed. */
+  idtErrors: string[];
 }
+
+/** IDT calls a report makes: Tm, hairpin and self-dimer per oligo, plus
+ * one heterodimer per primer pair (not the full cross matrix). */
+export const idtCallCount = (oligos: ReportOligo[]) => oligos.length * 3 + oligos.filter((o, i) => o.partnerIndex !== undefined && o.partnerIndex > i).length;
+
+const bestFold = (raw: unknown, seq: string, partner?: string): IdtFold | null => {
+  const b = readStructures(raw, seq, partner)[0];
+  return b ? { dg: b.dg, tm: b.tm } : null;
+};
 
 /** Above this many oligos, only partner primers get a heterodimer fold
  * (n oligos need n(n-1)/2 folds for the full matrix). */
@@ -64,20 +97,63 @@ async function pool(jobs: (() => Promise<void>)[], limit: number) {
   await Promise.all(Array.from({ length: Math.min(limit, jobs.length) }, worker));
 }
 
-/** Analyses every oligo alone, then every pair of oligos for heterodimers. */
-export async function buildReport(oligos: ReportOligo[], conditions: Conditions, engine: Engine, onProgress: (done: number, total: number) => void, signal?: AbortSignal): Promise<Report> {
+/** Analyses every oligo alone, then every pair of oligos for heterodimers;
+ * with `idt` credentials, also asks IDT OligoAnalyzer under the same
+ * conditions (Tm keeps LNA as "+N"; structures use the DNA bases, like
+ * the app's IDT buttons). */
+export async function buildReport(oligos: ReportOligo[], conditions: Conditions, engine: Engine, onProgress: (done: number, total: number) => void, signal?: AbortSignal, idt?: IdtCredentials | null): Promise<Report> {
   const n = oligos.length;
   const allCrossed = n <= MAX_CROSS;
   const pairs: [number, number][] = [];
   for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) if (allCrossed || oligos[i].partnerIndex === j) pairs.push([i, j]);
 
-  const total = n + pairs.length;
+  const idtValues: IdtValues[] = oligos.map(() => ({}));
+  const idtErrors: string[] = [];
+  const dna = oligos.map((o) => parseOligo(o.text).dna);
+  const idtJob = (run: () => Promise<void>) => async () => {
+    if (signal?.aborted) return;
+    try {
+      await run();
+    } catch (e) {
+      idtErrors.push(e instanceof Error ? e.message : String(e));
+    }
+    tick();
+  };
+  const idtJobs = !idt
+    ? []
+    : [
+        ...oligos.flatMap((o, i) => [
+          idtJob(async () => {
+            idtValues[i].tm = readAnalyze(await runIdt(idt, 'analyze', o.notation, conditions)).tm;
+          }),
+          idtJob(async () => {
+            idtValues[i].hairpin = bestFold(await runIdt(idt, 'hairpin', dna[i], conditions), dna[i]);
+          }),
+          idtJob(async () => {
+            idtValues[i].selfDimer = bestFold(await runIdt(idt, 'self_dimer', dna[i], conditions), dna[i], dna[i]);
+          }),
+        ]),
+        ...oligos.flatMap((o, i) =>
+          o.partnerIndex !== undefined && o.partnerIndex > i
+            ? [
+                idtJob(async () => {
+                  const j = o.partnerIndex!;
+                  const fold = bestFold(await runIdt(idt, 'hetero_dimer', dna[i], conditions, dna[j]), dna[i], dna[j]);
+                  idtValues[i].partner = fold;
+                  idtValues[j].partner = fold;
+                }),
+              ]
+            : [],
+        ),
+      ];
+
+  const total = n + pairs.length + idtJobs.length;
   let done = 0;
   const tick = () => onProgress(++done, total);
   const single: { props: Properties; structures: FullStructureAnalysis }[] = new Array(n);
   const cross: Record<string, DualStructure> = {};
   onProgress(0, total);
-  await pool(
+  const local = pool(
     [
       ...oligos.map((o, i) => async () => {
         const r = await analyze(o.notation, null, conditions, engine, signal);
@@ -92,7 +168,19 @@ export async function buildReport(oligos: ReportOligo[], conditions: Conditions,
     ],
     4,
   );
-  return { entries: oligos.map((o, i) => ({ ...o, ...single[i] })), cross, allCrossed, conditions, engine, createdAt: new Date() };
+  // IDT runs alongside, a few calls at a time to stay polite to its API.
+  await Promise.all([local, pool(idtJobs, 3)]);
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+  return {
+    entries: oligos.map((o, i) => ({ ...o, ...single[i], ...(idt ? { idt: idtValues[i] } : {}) })),
+    cross,
+    allCrossed,
+    conditions,
+    engine,
+    createdAt: new Date(),
+    withIdt: !!idt,
+    idtErrors,
+  };
 }
 
 /** The most stable structure of the bulge-aware model (the app's default view). */

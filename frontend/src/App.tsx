@@ -442,7 +442,7 @@ export default function App() {
         onCredentialsSaved={setCreds}
       />
     </div>
-    {reportOpen && <ReportView saved={saved} conditions={conditions} engine={engine} onClose={() => setReportOpen(false)} />}
+    {reportOpen && <ReportView saved={saved} conditions={conditions} engine={engine} idtCredentials={connected ? creds : null} onClose={() => setReportOpen(false)} />}
     </>
   );
 }

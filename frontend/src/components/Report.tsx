@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { DualStructure, Engine, StructureCandidate } from '../lib/api';
 import type { Conditions } from '../lib/conditions';
 import { dgLevel, fmt, fmtTm, LEVEL_TEXT, parseOligo } from '../lib/format';
-import { buildReport, crossOf, MAX_CROSS, reportOligos, top, type Report, type ReportEntry } from '../lib/report';
+import type { IdtCredentials } from '../lib/idt';
+import { buildReport, crossOf, idtCallCount, MAX_CROSS, reportOligos, top, type IdtFold, type Report, type ReportEntry } from '../lib/report';
 import { forwardName, reverseName, roleOf, type SavedOligo } from '../lib/savedOligos';
 import DuplexSvg from './DuplexSvg';
 import StriderStructure from './StriderStructure';
@@ -12,6 +13,8 @@ interface Props {
   saved: SavedOligo[];
   conditions: Conditions;
   engine: Engine;
+  /** IDT credentials when connected; the report can then add IDT's values. */
+  idtCredentials: IdtCredentials | null;
   onClose: () => void;
 }
 
@@ -21,12 +24,13 @@ const conditionsText = (c: Conditions) => `Oligo ${c.oligo_um} µM · Na⁺ ${c.
 
 /** Pick saved oligos, analyse them, then show print-ready A4 pages: one
  * per primer, one per probe, and a summary. Print saves it as a PDF. */
-export default function ReportView({ saved, conditions, engine, onClose }: Props) {
+export default function ReportView({ saved, conditions, engine, idtCredentials, onClose }: Props) {
   const [picked, setPicked] = useState<Set<string>>(() => new Set(saved.map((o) => o.id)));
   const [phase, setPhase] = useState<'pick' | 'loading' | 'ready'>('pick');
   const [progress, setProgress] = useState<[number, number]>([0, 0]);
   const [report, setReport] = useState<Report | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [withIdt, setWithIdt] = useState(true);
   const ctl = useRef<AbortController | null>(null);
 
   useEffect(() => () => ctl.current?.abort(), []);
@@ -45,7 +49,7 @@ export default function ReportView({ saved, conditions, engine, onClose }: Props
     ctl.current = c;
     setError(null);
     setPhase('loading');
-    buildReport(reportOligos(chosen), conditions, engine, (d, t) => setProgress([d, t]), c.signal).then(
+    buildReport(reportOligos(chosen), conditions, engine, (d, t) => setProgress([d, t]), c.signal, withIdt ? idtCredentials : null).then(
       (r) => {
         setReport(r);
         setPhase('ready');
@@ -112,6 +116,17 @@ export default function ReportView({ saved, conditions, engine, onClose }: Props
               </ul>
             </>
           )}
+          {saved.length > 0 &&
+            (idtCredentials ? (
+              <label className="mx-5 mb-3 flex cursor-pointer items-start gap-2.5 text-[12px] text-ink-muted">
+                <input type="checkbox" className="mt-0.5 accent-[var(--accent-solid)]" checked={withIdt} onChange={(e) => setWithIdt(e.target.checked)} disabled={phase === 'loading'} />
+                <span>
+                  <span className="font-medium text-idt">Add IDT OligoAnalyzer values</span> beside Strider&apos;s: Tm, hairpin, self-dimer and each pair&apos;s heterodimer ({idtCallCount(reportOligos(chosen))} IDT calls).
+                </span>
+              </label>
+            ) : (
+              <p className="mx-5 mb-3 text-[12px] text-ink-faint">Connect IDT in Settings to add IDT OligoAnalyzer values to the report.</p>
+            ))}
           {oligoCount > MAX_CROSS && <p className="px-5 pb-2 text-[12px] text-ink-faint">More than {MAX_CROSS} oligos: cross-dimers are folded only within each primer pair.</p>}
           {error && (
             <p role="alert" className="mx-5 mb-3 rounded-md bg-danger-subtle px-3 py-2 text-[12px] text-danger">
@@ -184,6 +199,7 @@ function Sheet({ report, page, pages, flow = false, children }: { report: Report
       <footer className="mt-4 flex items-baseline justify-between gap-4 border-t border-line pt-2 text-[9.5px] text-ink-faint">
         <span>
           {conditionsText(report.conditions)} · Structures: {ENGINE_LABEL[report.engine]}, bulge-aware, most stable fold
+          {report.withIdt && <span className="text-idt"> · IDT: OligoAnalyzer, same conditions</span>}
         </span>
         <span className="shrink-0 tabular-nums">
           {page} / {pages}
@@ -211,7 +227,34 @@ function Bases({ text, className = '' }: { text: string; className?: string }) {
   );
 }
 
-function Stat({ label, value, unit, big = false, className = '' }: { label: string; value: string | null; unit?: string; big?: boolean; className?: string }) {
+/** IDT's value in its own colour. `undefined` (not requested) renders nothing. */
+function IdtLine({ value, unit, className = '' }: { value: string | null | undefined; unit?: string; className?: string }) {
+  if (value === undefined) return null;
+  return (
+    <div className={`font-mono text-[11px] tabular-nums text-idt ${className}`}>
+      <span className="mr-1 font-sans text-[9px] font-medium uppercase tracking-wider">IDT</span>
+      {value ?? 'n/a'}
+      {unit && value !== null && <span className="ml-0.5 font-sans text-[9.5px]">{unit}</span>}
+    </div>
+  );
+}
+
+/** IDT's text for one number of an oligo, or `undefined` without IDT. */
+const idtNum = (e: ReportEntry, get: (v: NonNullable<ReportEntry['idt']>) => number | null | undefined, digits: number): string | null | undefined => {
+  if (!e.idt) return undefined;
+  const v = get(e.idt);
+  return v === undefined || v === null ? null : fmt(v, digits);
+};
+
+/** A structure's IDT cell: undefined without IDT, "n/a" when the call failed, "none" when IDT found none. */
+function idtFoldText(e: ReportEntry, fold: IdtFold | null | undefined, field: 'dg' | 'tm'): string | null | undefined {
+  if (!e.idt) return undefined;
+  if (fold === undefined) return null;
+  if (fold === null) return 'none';
+  return field === 'dg' ? fmt(fold.dg, 2) : fmtTm(fold.tm);
+}
+
+function Stat({ label, value, unit, big = false, className = '', idt }: { label: string; value: string | null; unit?: string; big?: boolean; className?: string; idt?: string | null }) {
   return (
     <div>
       <div className="mb-0.5 text-[9.5px] font-medium uppercase tracking-[0.08em] text-ink-faint">{label}</div>
@@ -219,6 +262,7 @@ function Stat({ label, value, unit, big = false, className = '' }: { label: stri
         {value ?? 'n/a'}
         {unit && value !== null && <span className={`ml-1 font-sans font-normal text-ink-faint ${big ? 'text-[12px]' : 'text-[10.5px]'}`}>{unit}</span>}
       </div>
+      <IdtLine value={idt} unit={unit} className="mt-0.5" />
     </div>
   );
 }
@@ -226,7 +270,8 @@ function Stat({ label, value, unit, big = false, className = '' }: { label: stri
 const dgClass = (dg: number | null | undefined, kind: 'hairpin' | 'dimer') => LEVEL_TEXT[dgLevel(dg ?? null, kind)];
 
 /** One structure block: heading, ΔG and Tm of the most stable fold, figure. */
-function StructureBlock({ title, note, best, kind, children, empty }: { title: string; note?: string; best: StructureCandidate | null; kind: 'hairpin' | 'dimer'; children?: ReactNode; empty: string }) {
+function StructureBlock({ title, note, best, kind, children, empty, idt }: { title: string; note?: string; best: StructureCandidate | null; kind: 'hairpin' | 'dimer'; children?: ReactNode; empty: string; idt?: { e: ReportEntry; fold: IdtFold | null | undefined } }) {
+  const idtDg = idt && idtFoldText(idt.e, idt.fold, 'dg');
   return (
     <section className="report-avoid rounded-md border border-line px-4 py-3">
       <div className="mb-1 flex flex-wrap items-baseline gap-x-5 gap-y-1">
@@ -247,6 +292,31 @@ function StructureBlock({ title, note, best, kind, children, empty }: { title: s
           </span>
         )}
       </div>
+      {idtDg !== undefined && (
+        <div className="mb-1 flex justify-end gap-4 font-mono text-[11px] tabular-nums text-idt">
+          <span className="font-sans text-[9.5px] font-medium uppercase tracking-wider">IDT</span>
+          {idtDg === 'none' ? (
+            <span className="font-sans">no structure</span>
+          ) : idtDg === null ? (
+            <span>n/a</span>
+          ) : (
+            <>
+              <span>
+                <span className="mr-1 font-sans">ΔG{kind === 'hairpin' ? '25' : '37'}</span>
+                {idtDg}
+                <span className="ml-1 font-sans text-[10px]">kcal/mol</span>
+              </span>
+              {idt!.fold?.tm != null && (
+                <span>
+                  <span className="mr-1 font-sans">Tm</span>
+                  {idtFoldText(idt!.e, idt!.fold, 'tm')}
+                  <span className="ml-1 font-sans text-[10px]">°C</span>
+                </span>
+              )}
+            </>
+          )}
+        </div>
+      )}
       {best ? children : <p className="py-1 text-[12px] italic text-ink-faint">{empty}</p>}
     </section>
   );
@@ -297,7 +367,7 @@ function OligoPage({ report, index, page, pages }: { report: Report; index: numb
       </div>
 
       <div className="mb-4 grid grid-cols-4 gap-x-4 gap-y-3 rounded-md border border-line px-4 py-3">
-        <Stat label="Tm" value={fmt(p.tm, 1)} unit="°C" big className="text-accent" />
+        <Stat label="Tm" value={fmt(p.tm, 1)} unit="°C" big className="text-accent" idt={idtNum(e, (v) => v.tm, 1)} />
         <Stat label="Length" value={String(p.length)} unit="nt" big />
         <Stat label="GC content" value={fmt(p.gc_percent, 1)} unit="%" big />
         <Stat label="MW" value={fmt(p.mw, 1)} unit="g/mol" big />
@@ -308,7 +378,7 @@ function OligoPage({ report, index, page, pages }: { report: Report; index: numb
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3">
-        <StructureBlock title="Hairpin" best={hairpin} kind="hairpin" empty="No stable hairpin.">
+        <StructureBlock title="Hairpin" best={hairpin} kind="hairpin" empty="No stable hairpin." idt={e.idt && { e, fold: e.idt.hairpin }}>
           {hairpin && (
             <>
               <StriderStructure sequence={p.sequence} structure={hairpin.structure} fallback={null} maxHeight={250} forceLight title={`${e.name} hairpin`} />
@@ -316,11 +386,11 @@ function OligoPage({ report, index, page, pages }: { report: Report; index: numb
             </>
           )}
         </StructureBlock>
-        <StructureBlock title="Self-dimer" best={self} kind="dimer" empty="No stable self-dimer.">
+        <StructureBlock title="Self-dimer" best={self} kind="dimer" empty="No stable self-dimer." idt={e.idt && { e, fold: e.idt.selfDimer }}>
           {self && <DuplexSvg seq1={p.sequence} seq2={p.sequence} structure={self.structure} title={`${e.name} self-dimer`} />}
         </StructureBlock>
         {partner && (
-          <StructureBlock title="Heterodimer" note={`with ${partner.name}`} best={top(partnerDimer)} kind="dimer" empty="No stable heterodimer with the partner.">
+          <StructureBlock title="Heterodimer" note={`with ${partner.name}`} best={top(partnerDimer)} kind="dimer" empty="No stable heterodimer with the partner." idt={e.idt && { e, fold: e.idt.partner }}>
             {partnerDimer && top(partnerDimer) && <DuplexSvg seq1={p.sequence} seq2={partner.props.sequence} structure={top(partnerDimer)!.structure} title={`${e.name} × ${partner.name}`} />}
           </StructureBlock>
         )}
@@ -386,11 +456,26 @@ function SummaryPage({ report, page, pages }: { report: Report; page: number; pa
                   </td>
                   <td className={`${td} text-right`}>{e.props.length}</td>
                   <td className={`${td} text-right`}>{fmt(e.props.gc_percent, 1)}</td>
-                  <td className={`${td} text-right font-semibold text-ink`}>{fmt(e.props.tm, 1)}</td>
-                  <td className={`${td} text-right`}>{hp ? num(fmt(hp.dg, 2), dgClass(hp.dg, 'hairpin')) : <span className="text-ink-faint">none</span>}</td>
-                  <td className={`${td} text-right`}>{hp ? fmtTm(hp.tm) : <span className="text-ink-faint">-</span>}</td>
-                  <td className={`${td} text-right`}>{sd ? num(fmt(sd.dg, 2), dgClass(sd.dg, 'dimer')) : <span className="text-ink-faint">none</span>}</td>
-                  <td className={`${td} text-right`}>{e.partnerIndex === undefined ? <span className="text-ink-faint">-</span> : het ? num(fmt(het.dg, 2), dgClass(het.dg, 'dimer')) : <span className="text-ink-faint">none</span>}</td>
+                  <td className={`${td} text-right font-semibold text-ink`}>
+                    {fmt(e.props.tm, 1)}
+                    <IdtCell v={idtNum(e, (v) => v.tm, 1)} />
+                  </td>
+                  <td className={`${td} text-right`}>
+                    {hp ? num(fmt(hp.dg, 2), dgClass(hp.dg, 'hairpin')) : <span className="text-ink-faint">none</span>}
+                    <IdtCell v={e.idt && idtFoldText(e, e.idt.hairpin, 'dg')} />
+                  </td>
+                  <td className={`${td} text-right`}>
+                    {hp ? fmtTm(hp.tm) : <span className="text-ink-faint">-</span>}
+                    <IdtCell v={e.idt && (e.idt.hairpin === null ? '-' : idtFoldText(e, e.idt.hairpin, 'tm'))} />
+                  </td>
+                  <td className={`${td} text-right`}>
+                    {sd ? num(fmt(sd.dg, 2), dgClass(sd.dg, 'dimer')) : <span className="text-ink-faint">none</span>}
+                    <IdtCell v={e.idt && idtFoldText(e, e.idt.selfDimer, 'dg')} />
+                  </td>
+                  <td className={`${td} text-right`}>
+                    {e.partnerIndex === undefined ? <span className="text-ink-faint">-</span> : het ? num(fmt(het.dg, 2), dgClass(het.dg, 'dimer')) : <span className="text-ink-faint">none</span>}
+                    {e.partnerIndex !== undefined && <IdtCell v={e.idt && idtFoldText(e, e.idt.partner, 'dg')} />}
+                  </td>
                 </tr>
               );
             })}
@@ -398,7 +483,13 @@ function SummaryPage({ report, page, pages }: { report: Report; page: number; pa
         </table>
         <p className="mt-1.5 text-[9.5px] text-ink-faint">
           ΔG in kcal/mol. Amber and red mark structures likely to interfere (hairpin ΔG25 at or below -2 / -3, dimers ΔG37 at or below -6 / -9, IDT's rules of thumb).
+          {report.withIdt && <span className="text-idt"> Teal: IDT OligoAnalyzer under the same conditions (Tm with LNA; structures on the DNA bases).</span>}
         </p>
+        {report.idtErrors.length > 0 && (
+          <p className="mt-1 text-[9.5px] text-danger">
+            {report.idtErrors.length} IDT call{report.idtErrors.length === 1 ? '' : 's'} failed (n/a above): {report.idtErrors[0]}
+          </p>
+        )}
       </section>
 
       {(pairChecks.length > 0 || (probes.length > 0 && meanPrimerTm !== null)) && (
@@ -411,6 +502,11 @@ function SummaryPage({ report, page, pages }: { report: Report; page: number; pa
                 <span>
                   {c.a.name} {fmt(c.a.props.tm, 1)} °C, {c.b.name} {fmt(c.b.props.tm, 1)} °C:{' '}
                   <span className={`font-mono font-medium tabular-nums ${c.dTm > 2 ? 'text-warning' : 'text-success'}`}>ΔTm {fmt(c.dTm, 1)} °C</span>
+                  {c.a.idt?.tm != null && c.b.idt?.tm != null && (
+                    <span className="ml-2 text-idt">
+                      (IDT {fmt(c.a.idt.tm, 1)} / {fmt(c.b.idt.tm, 1)} °C, ΔTm <span className="font-mono tabular-nums">{fmt(Math.abs(c.a.idt.tm - c.b.idt.tm), 1)}</span>)
+                    </span>
+                  )}
                 </span>
               </li>
             ))}
@@ -486,6 +582,12 @@ function SummaryPage({ report, page, pages }: { report: Report; page: number; pa
       </section>
     </Sheet>
   );
+}
+
+/** Second line of a summary cell: IDT's value, nothing without IDT. */
+function IdtCell({ v }: { v: string | null | undefined }) {
+  if (v === undefined) return null;
+  return <div className="text-[9.5px] text-idt">{v ?? 'n/a'}</div>;
 }
 
 function HairpinThumb({ e, n }: { e: ReportEntry; n: number }) {
