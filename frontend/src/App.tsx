@@ -374,7 +374,7 @@ export default function App() {
 
       <footer className="border-t border-line">
         <div className="mx-auto max-w-5xl px-4 py-4 text-[11px] leading-relaxed text-ink-faint sm:px-6">
-          Strider (native Rust, vendored in this repo): SantaLucia &amp; Hicks 2004 nearest-neighbour duplex Tm with Owczarzy Na⁺/Mg²⁺ correction (Mg²⁺ net of dNTPs); LNA residues by Owczarzy et al. 2011 (isolated LNA from McTigue et al. 2004), folded as DNA in hairpins and dimers; hairpins and dimers folded and scored with {engine === 'mathews' ? 'Mathews 2004' : 'SantaLucia 2004'} parameters, ranked suboptimal structures. IDT values come from IDT OligoAnalyzer under the same conditions.
+          Strider (native Rust, vendored in this repo): SantaLucia &amp; Hicks 2004 nearest-neighbour duplex Tm with Owczarzy 2008 Na⁺/Mg²⁺ correction, as IDT applies it (Mg²⁺ net of dNTPs); LNA residues by Owczarzy et al. 2011 (isolated LNA from McTigue et al. 2004), folded as DNA in hairpins and dimers; hairpins and dimers folded and scored with {engine === 'mathews' ? 'Mathews 2004' : 'SantaLucia 2004'} parameters, ranked suboptimal structures. IDT values come from IDT OligoAnalyzer under the same conditions.
         </div>
       </footer>
 

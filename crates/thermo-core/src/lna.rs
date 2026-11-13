@@ -12,7 +12,7 @@
 //! is exactly this crate's [`crate::NN`] table, so the full isolated values
 //! can replace the DNA doublet directly. Initiation for a terminal LNA is
 //! the DNA initiation (the paper's own assumption), and salt is corrected
-//! exactly as for DNA (Owczarzy Na+/Mg2+ Tm correction).
+//! exactly as for DNA ([`salt::owczarzy_salt_tm`]).
 //!
 //! Every table is indexed like [`crate::NN`]: `(b1 << 2) | b2` over the
 //! top-strand (LNA-bearing) doublet 5'-b1 b2-3', A=0, C=1, G=2, T=3.
@@ -127,7 +127,7 @@ pub fn lna_duplex_dh_ds(seq: &str, lna: &[bool]) -> Result<(f64, f64), ThermoErr
 }
 
 /// Duplex Tm (°C) of an LNA-bearing oligo with its DNA complement, the
-/// LNA counterpart of [`crate::duplex_tm`] (Mg2+ net of dNTPs, Owczarzy
+/// LNA counterpart of [`crate::duplex_tm`] (Mg2+ net of dNTPs, Owczarzy 2008
 /// salt correction). With no LNA it is exactly [`crate::duplex_tm`].
 pub fn lna_duplex_tm(seq: &str, lna: &[bool], sodium_m: f64, magnesium_m: f64, dntp_m: f64, oligo_conc_m: f64) -> Result<f64, ThermoError> {
     if !lna.iter().any(|&l| l) {
@@ -136,11 +136,9 @@ pub fn lna_duplex_tm(seq: &str, lna: &[bool], sodium_m: f64, magnesium_m: f64, d
     }
     let (dh, ds) = lna_duplex_dh_ds(seq, lna)?;
     let free_mg = (magnesium_m - dntp_m).max(0.0);
-    let mut tm = (dh * 1000.0) / (ds + R * 1000.0 * (oligo_conc_m / 4.0).ln()) - 273.15;
-    if sodium_m != 1.0 || free_mg > 0.0 {
-        tm += salt::owczarzy_tm_correction(seq, sodium_m, free_mg);
-    }
-    Ok(tm)
+    let tm_1m = (dh * 1000.0) / (ds + R * 1000.0 * (oligo_conc_m / 4.0).ln());
+    let tm = if sodium_m != 1.0 || free_mg > 0.0 { salt::owczarzy_salt_tm(tm_1m, seq, sodium_m, free_mg) } else { tm_1m };
+    Ok(tm - 273.15)
 }
 
 /// Salt-corrected duplex ΔG (kcal/mol) at `celsius`, LNA counterpart of

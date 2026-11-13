@@ -117,7 +117,7 @@ Open **http://127.0.0.1:5070** and press **Example**.
 </picture>
 
 1. **You paste** an oligo, raw or FASTA, RNA read as DNA, and optionally a partner strand.
-2. **Strider computes** the duplex Tm (SantaLucia & Hicks 2004 nearest-neighbour values with Owczarzy Na⁺/Mg²⁺ correction, Mg²⁺ net of dNTPs) and folds hairpins and dimers, keeping the five most stable of each, in a bulge-aware and a contiguous-stem model.
+2. **Strider computes** the duplex Tm (SantaLucia & Hicks 2004 nearest-neighbour values with the Owczarzy 2008 Na⁺/Mg²⁺ correction as IDT applies it, Mg²⁺ net of dNTPs; LNA residues by Owczarzy et al. 2011) and folds hairpins and dimers, keeping the five most stable of each, in a bulge-aware and a contiguous-stem model.
 3. **IDT answers on demand.** Each IDT button calls exactly one OligoAnalyzer endpoint through Thermool's server, under the conditions the results on screen were computed with.
 4. **Both appear together.** IDT's structure is matched to the Strider structure it shares the most base pairs with, and its values are shown on that card.
 
@@ -229,7 +229,7 @@ Thermool/
 - [**Strider**](https://github.com/EmilioVenegas/strider) by Emilio Venegas (MIT): the thermodynamics, via its native Rust port vendored into `crates/thermo-core`.
 - [**Primerool**](https://github.com/KowalskiBio/Primerool) and [**Oligool**](https://github.com/KowalskiBio/Oligool): the engine, structure drawings and IDT integration Thermool builds on.
 - **IDT OligoAnalyzer**, used through your own IDT account and API access.
-- SantaLucia & Hicks (2004) *Annu. Rev. Biophys. Biomol. Struct.* 33:415; Mathews et al. (2004) *PNAS* 101:7287; Owczarzy et al. (2008) *Biochemistry* 47:5336.
+- SantaLucia & Hicks (2004) *Annu. Rev. Biophys. Biomol. Struct.* 33:415; Mathews et al. (2004) *PNAS* 101:7287; Owczarzy et al. (2008) *Biochemistry* 47:5336; Owczarzy et al. (2011) *Biochemistry* 50:9352; McTigue et al. (2004) *Biochemistry* 43:5388.
 
 ## License
 
