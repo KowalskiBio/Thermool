@@ -2,13 +2,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { analyze, ApiError, type AnalyzeResponse, type Engine, type EquilibriumSplit, type IdtKind } from './lib/api';
 import { conditionsKey, loadConditions, saveConditions, type Conditions } from './lib/conditions';
 import { parseOligo } from './lib/format';
-import { loadSavedOligos, newId, oligoKey, storeSavedOligos, suggestName, type SavedOligo } from './lib/savedOligos';
+import { loadSavedOligos, newId, oligoKey, storeSavedOligos, suggestName, suggestPairNames, type SavedOligo } from './lib/savedOligos';
 import { EMPTY_CREDENTIALS, hasCredentials, loadCredentials, runIdt, type IdtCredentials } from './lib/idt';
 import ConditionsBar from './components/ConditionsBar';
 import SettingsDialog, { type SettingsTab } from './components/SettingsDialog';
 import type { IdtEntry } from './components/IdtButton';
 import PropertiesTable from './components/PropertiesTable';
-import SavedOligos, { SaveOligoForm } from './components/SavedOligos';
+import SavedOligos, { SaveOligoForm, type SaveRequest } from './components/SavedOligos';
 import SequenceField from './components/SequenceField';
 import StabilityPanel from './components/StabilityPanel';
 import StructurePanel from './components/StructurePanel';
@@ -122,8 +122,9 @@ export default function App() {
   const currentKey = oligo ? oligoKey(seqText, savePartner) : null;
   const activeSaved = currentKey ? (saved.find((o) => oligoKey(o.sequence, o.partner) === currentKey) ?? null) : null;
 
-  const saveCurrent = (name: string) => {
-    const entry: SavedOligo = { id: newId(), name, sequence: seqText.trim(), partner: savePartner?.trim(), savedAt: Date.now() };
+  const saveCurrent = (req: SaveRequest) => {
+    const base = { id: newId(), name: req.name, sequence: seqText.trim(), savedAt: Date.now() };
+    const entry: SavedOligo = req.kind === 'pair' && savePartner ? { ...base, sequenceName: req.sequenceName, partner: savePartner.trim(), partnerName: req.partnerName } : base;
     setSaved((list) => [entry, ...list]);
     setSaving(false);
     setSavedOpen(true);
@@ -142,9 +143,9 @@ export default function App() {
     });
     setUndo(null);
   };
-  const openSaved = (o: SavedOligo) => {
-    setSeqText(o.sequence);
-    if (o.partner) {
+  const openSaved = (o: SavedOligo, only?: 'sequence' | 'partner') => {
+    setSeqText(only === 'partner' && o.partner ? o.partner : o.sequence);
+    if (o.partner && !only) {
       setPartnerText(o.partner);
       setShowPartner(true);
     } else {
@@ -303,7 +304,13 @@ export default function App() {
             }
           />
           {saving && oligo && !activeSaved && (
-            <SaveOligoForm initialName={suggestName(seqText, saved)} withPartner={!!savePartner} onSave={saveCurrent} onCancel={() => setSaving(false)} />
+            <SaveOligoForm
+              key={savePartner ? 'pair' : 'single'}
+              initialName={suggestName(seqText, saved)}
+              pair={savePartner ? (({ pair, ...names }) => ({ name: pair, ...names }))(suggestPairNames(seqText, savePartner, saved)) : undefined}
+              onSave={saveCurrent}
+              onCancel={() => setSaving(false)}
+            />
           )}
           {savedOpen && (
             <div id="saved-oligos" className="-mt-2">
