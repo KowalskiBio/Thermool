@@ -13,7 +13,7 @@ use axum::Json;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::analyze::clean_sequence;
+use crate::analyze::{clean_sequence, parse_oligo};
 use crate::conditions::Conditions;
 use crate::error::AppError;
 use crate::AppState;
@@ -124,7 +124,9 @@ pub async fn run(State(state): State<AppState>, Json(req): Json<RunRequest>) -> 
     });
     let mut query: Vec<(&str, &str)> = Vec::new();
     match req.kind {
-        Kind::Analyze => body["Sequence"] = json!(seq),
+        // IDT reads "+A" as an LNA base, so the Tm comparison keeps the
+        // LNA. Structure calls stay on DNA bases, like Strider's folding.
+        Kind::Analyze => body["Sequence"] = json!(parse_oligo(&req.sequence, "Sequence")?.notation()),
         Kind::Hairpin => {
             body["Sequence"] = json!(seq);
             body["FoldingTemp"] = json!(FOLDING_TEMP_C);

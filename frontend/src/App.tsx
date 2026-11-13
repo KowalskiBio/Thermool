@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { analyze, ApiError, type AnalyzeResponse, type Engine, type EquilibriumSplit, type IdtKind } from './lib/api';
 import { conditionsKey, loadConditions, saveConditions, type Conditions } from './lib/conditions';
-import { cleanSequence } from './lib/format';
+import { parseOligo } from './lib/format';
+import { loadSavedOligos, newId, oligoKey, storeSavedOligos, suggestName, type SavedOligo } from './lib/savedOligos';
 import { EMPTY_CREDENTIALS, hasCredentials, loadCredentials, runIdt, type IdtCredentials } from './lib/idt';
 import ConditionsBar from './components/ConditionsBar';
 import SettingsDialog, { type SettingsTab } from './components/SettingsDialog';
 import type { IdtEntry } from './components/IdtButton';
 import PropertiesTable from './components/PropertiesTable';
+import SavedOligos, { SaveOligoForm } from './components/SavedOligos';
 import SequenceField from './components/SequenceField';
 import StabilityPanel from './components/StabilityPanel';
 import StructurePanel from './components/StructurePanel';
@@ -72,6 +74,16 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('engine');
   const [idt, setIdt] = useState<Record<string, IdtEntry>>({});
+  const [saved, setSaved] = useState<SavedOligo[]>(loadSavedOligos);
+  const [savedOpen, setSavedOpen] = useState(() => {
+    try {
+      return localStorage.getItem('thermool-saved-open') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [saving, setSaving] = useState(false);
+  const [undo, setUndo] = useState<{ oligo: SavedOligo; index: number } | null>(null);
 
   useEffect(() => {
     loadCredentials().then(setCreds, () => {});
@@ -93,8 +105,53 @@ export default function App() {
     }
   }, [equilibriumSplit]);
 
-  const oligo = cleanSequence(seqText);
-  const partner = showPartner ? cleanSequence(partnerText) : '';
+  useEffect(() => storeSavedOligos(saved), [saved]);
+  useEffect(() => {
+    try {
+      localStorage.setItem('thermool-saved-open', savedOpen ? '1' : '0');
+    } catch {
+      /* not remembered */
+    }
+  }, [savedOpen]);
+
+  // The server gets IDT notation ("+A" for LNA), so case is never ambiguous there.
+  const oligo = parseOligo(seqText).notation;
+  const partner = showPartner ? parseOligo(partnerText).notation : '';
+
+  const savePartner = showPartner && partner ? partnerText : undefined;
+  const currentKey = oligo ? oligoKey(seqText, savePartner) : null;
+  const activeSaved = currentKey ? (saved.find((o) => oligoKey(o.sequence, o.partner) === currentKey) ?? null) : null;
+
+  const saveCurrent = (name: string) => {
+    const entry: SavedOligo = { id: newId(), name, sequence: seqText.trim(), partner: savePartner?.trim(), savedAt: Date.now() };
+    setSaved((list) => [entry, ...list]);
+    setSaving(false);
+    setSavedOpen(true);
+    setUndo(null);
+  };
+  const deleteSaved = (o: SavedOligo) => {
+    setUndo({ oligo: o, index: saved.findIndex((x) => x.id === o.id) });
+    setSaved((list) => list.filter((x) => x.id !== o.id));
+  };
+  const undoDelete = () => {
+    if (!undo) return;
+    setSaved((list) => {
+      const next = [...list];
+      next.splice(Math.min(undo.index, next.length), 0, undo.oligo);
+      return next;
+    });
+    setUndo(null);
+  };
+  const openSaved = (o: SavedOligo) => {
+    setSeqText(o.sequence);
+    if (o.partner) {
+      setPartnerText(o.partner);
+      setShowPartner(true);
+    } else {
+      setShowPartner(false);
+    }
+    setSaving(false);
+  };
 
   // Re-analyze shortly after typing stops; a newer request cancels the old one.
   useEffect(() => {
@@ -140,8 +197,10 @@ export default function App() {
       return;
     }
     const { data, conditions: c } = result;
-    const o = data.oligo.sequence;
-    const p = data.partner?.sequence;
+    // The Tm comparison keeps LNA ("+A"); structures are DNA on both sides.
+    const lnaAware = kind === 'analyze';
+    const o = lnaAware ? data.oligo.notation : data.oligo.sequence;
+    const p = lnaAware ? data.partner?.notation : data.partner?.sequence;
     const jobs: [string, string | undefined][] = kind === 'hetero_dimer' ? (p ? [[o, p]] : []) : [[o, undefined], ...(p ? [[p, undefined] as [string, undefined]] : [])];
     for (const [seq, second] of jobs) {
       const key = idtKey(kind, c, seq, second);
@@ -194,9 +253,30 @@ export default function App() {
             value={seqText}
             onChange={setSeqText}
             autoFocus
-            placeholder="Paste a DNA oligo, 5′ to 3′ (raw or FASTA)"
+            placeholder="Paste a DNA oligo, 5′ to 3′ (raw or FASTA). Lowercase or +N marks LNA, e.g. agGCtGttATggat"
             actions={
               <>
+                {oligo &&
+                  (activeSaved ? (
+                    <span className="text-ink-faint" title="This oligo is in your saved list">
+                      Saved as <span className="text-ink-muted">{activeSaved.name}</span>
+                    </span>
+                  ) : (
+                    !saving && (
+                      <button type="button" className="text-ink-muted underline decoration-line-strong underline-offset-2 hover:text-ink" onClick={() => setSaving(true)}>
+                        Save
+                      </button>
+                    )
+                  ))}
+                <button
+                  type="button"
+                  className={`hover:text-ink ${savedOpen ? 'text-ink' : 'text-ink-muted'}`}
+                  onClick={() => setSavedOpen((v) => !v)}
+                  aria-expanded={savedOpen}
+                  aria-controls="saved-oligos"
+                >
+                  Saved{saved.length ? ` (${saved.length})` : ''}
+                </button>
                 {!seqText && (
                   <button
                     type="button"
@@ -222,6 +302,14 @@ export default function App() {
               </>
             }
           />
+          {saving && oligo && !activeSaved && (
+            <SaveOligoForm initialName={suggestName(seqText, saved)} withPartner={!!savePartner} onSave={saveCurrent} onCancel={() => setSaving(false)} />
+          )}
+          {savedOpen && (
+            <div id="saved-oligos" className="-mt-2">
+              <SavedOligos oligos={saved} activeId={activeSaved?.id ?? null} onOpen={openSaved} onDelete={deleteSaved} undo={undo?.oligo ?? null} onUndo={undoDelete} />
+            </div>
+          )}
           {showPartner && (
             <SequenceField
               id="partner"
@@ -250,8 +338,8 @@ export default function App() {
               {loading && <Spinner className="absolute -top-5 right-0 text-ink-faint" />}
               <PropertiesTable
                 strands={[
-                  { label: 'Oligo', props: data.oligo, idt: getIdt('analyze', data.oligo.sequence) },
-                  ...(data.partner ? [{ label: 'Partner', props: data.partner, idt: getIdt('analyze', data.partner.sequence) }] : []),
+                  { label: 'Oligo', props: data.oligo, idt: getIdt('analyze', data.oligo.notation) },
+                  ...(data.partner ? [{ label: 'Partner', props: data.partner, idt: getIdt('analyze', data.partner.notation) }] : []),
                 ]}
                 onIdt={() => requestIdt('analyze')}
                 idtConnected={connected}
@@ -286,7 +374,7 @@ export default function App() {
 
       <footer className="border-t border-line">
         <div className="mx-auto max-w-5xl px-4 py-4 text-[11px] leading-relaxed text-ink-faint sm:px-6">
-          Strider (native Rust, vendored in this repo): SantaLucia &amp; Hicks 2004 nearest-neighbour duplex Tm with Owczarzy Na⁺/Mg²⁺ correction (Mg²⁺ net of dNTPs); hairpins and dimers folded and scored with {engine === 'mathews' ? 'Mathews 2004' : 'SantaLucia 2004'} parameters, ranked suboptimal structures. IDT values come from IDT OligoAnalyzer under the same conditions.
+          Strider (native Rust, vendored in this repo): SantaLucia &amp; Hicks 2004 nearest-neighbour duplex Tm with Owczarzy Na⁺/Mg²⁺ correction (Mg²⁺ net of dNTPs); LNA residues by Owczarzy et al. 2011 (isolated LNA from McTigue et al. 2004), folded as DNA in hairpins and dimers; hairpins and dimers folded and scored with {engine === 'mathews' ? 'Mathews 2004' : 'SantaLucia 2004'} parameters, ranked suboptimal structures. IDT values come from IDT OligoAnalyzer under the same conditions.
         </div>
       </footer>
 

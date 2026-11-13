@@ -15,13 +15,46 @@ export function dgLevel(dg: number | null, kind: 'hairpin' | 'dimer'): 'ok' | 'w
 
 export const LEVEL_TEXT = { ok: 'text-ink', warn: 'text-warning', bad: 'text-danger' } as const;
 
-/** Client-side mirror of the server's cleaning, for live length / GC. */
+export interface ParsedOligo {
+  /** Uppercase DNA bases (LNA read as its base). */
+  dna: string;
+  /** `lna[i]`: base `i` is a locked nucleic acid. */
+  lna: boolean[];
+  /** IDT-style notation, "+" before each LNA base; what the server gets. */
+  notation: string;
+  lnaCount: number;
+}
+
+/** Client-side mirror of the server's `parse_oligo`, for live length, GC
+ * and LNA count: drops FASTA headers, whitespace and digits, reads U as T.
+ * LNA is a leading "+" ("+A"), or lowercase in a sequence that mixes cases
+ * ("agGCtG"); an all-lowercase sequence is plain DNA. Invalid characters
+ * are kept so the server can name them. */
+export function parseOligo(raw: string): ParsedOligo {
+  const chars = [...raw.split('\n').filter((l) => !l.trimStart().startsWith('>')).join('').replace(/[\s\d]/g, '')];
+  const lowerIsLna = chars.some((c) => /[A-Z]/.test(c)) && chars.some((c) => /[a-z]/.test(c));
+  let dna = '';
+  let notation = '';
+  const lna: boolean[] = [];
+  let plus = false;
+  for (const c of chars) {
+    if (c === '+') {
+      if (plus) notation += '+';
+      plus = true;
+      continue;
+    }
+    const base = c.toUpperCase() === 'U' ? 'T' : c.toUpperCase();
+    const isLna = plus || (lowerIsLna && /[a-z]/.test(c));
+    dna += base;
+    notation += (isLna ? '+' : '') + base;
+    lna.push(isLna);
+    plus = false;
+  }
+  if (plus) notation += '+';
+  return { dna, lna, notation, lnaCount: lna.filter(Boolean).length };
+}
+
+/** Client-side mirror of the server's cleaning: DNA bases only. */
 export function cleanSequence(raw: string): string {
-  return raw
-    .split('\n')
-    .filter((l) => !l.trimStart().startsWith('>'))
-    .join('')
-    .replace(/[\s\d]/g, '')
-    .toUpperCase()
-    .replace(/U/g, 'T');
+  return parseOligo(raw).dna;
 }

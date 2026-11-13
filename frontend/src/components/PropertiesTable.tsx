@@ -64,6 +64,11 @@ export default function PropertiesTable({ strands, onIdt, idtConnected }: Props)
                   );
                 })}
               </div>
+              {s.props.lna_count > 0 && (
+                <p className="mt-3 text-[12px] leading-relaxed text-ink-faint">
+                  <span className="font-medium text-accent">{s.props.lna_count} LNA</span> in the Tm (Owczarzy et al. 2011 nearest neighbours, against a DNA complement). Hairpins, dimers and stability below fold LNA bases as DNA, so they underestimate LNA structures.
+                </p>
+              )}
             </div>
           );
         })}

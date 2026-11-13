@@ -32,6 +32,7 @@
 
 pub mod dimer;
 pub mod hairpin;
+pub mod lna;
 pub mod mathews2004;
 pub mod mathews2004_fold;
 pub mod salt;
@@ -47,7 +48,7 @@ pub enum ThermoError {
     InvalidPairing(String),
 }
 
-const R: f64 = 1.987e-3; // kcal / (mol . K)
+pub(crate) const R: f64 = 1.987e-3; // kcal / (mol . K)
 
 // ---------------------------------------------------------------------------
 // DNA nearest-neighbor parameters (SantaLucia & Hicks 2004)
@@ -55,7 +56,7 @@ const R: f64 = 1.987e-3; // kcal / (mol . K)
 // Values identical to strider.thermo.nn_dna.DNA_NN (complement pairs share
 // values by symmetry, exactly as the Python table spells them out).
 // ---------------------------------------------------------------------------
-const NN: [(f64, f64); 16] = [
+pub(crate) const NN: [(f64, f64); 16] = [
     (-7.9, -22.2),  // AA = TT
     (-8.4, -22.4),  // AC = GT
     (-7.8, -21.0),  // AG = CT
@@ -74,8 +75,8 @@ const NN: [(f64, f64); 16] = [
     (-7.9, -22.2),  // TT = AA
 ];
 
-const INIT_GC: (f64, f64) = (0.1, -2.8); // terminal G-C or C-G pair
-const INIT_AT: (f64, f64) = (2.3, 4.1); // terminal A-T or T-A pair
+pub(crate) const INIT_GC: (f64, f64) = (0.1, -2.8); // terminal G-C or C-G pair
+pub(crate) const INIT_AT: (f64, f64) = (2.3, 4.1); // terminal A-T or T-A pair
 const SYMMETRY_DS: f64 = -1.4; // self-complementarity, entropy only
 
 // 256-entry base -> 2-bit map; 255 = not ACGT (U treated as T, DNA engine).
@@ -93,7 +94,7 @@ const fn build_base_code() -> [u8; 256] {
     t[b'u' as usize] = 3;
     t
 }
-const BASE_CODE: [u8; 256] = build_base_code();
+pub(crate) const BASE_CODE: [u8; 256] = build_base_code();
 
 // ---------------------------------------------------------------------------
 // Sequence helpers (Python-faithful: unknown chars survive translation, so

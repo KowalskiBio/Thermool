@@ -33,7 +33,11 @@ async function postJson<T>(path: string, body: unknown, signal?: AbortSignal): P
 // Shapes from `src/analyze.rs` (and Primerool's `engine::structure_variant`).
 
 export interface Properties {
+  /** DNA bases, uppercase. */
   sequence: string;
+  /** "+" before each LNA base; equals `sequence` without LNA. */
+  notation: string;
+  lna_count: number;
   length: number;
   gc_percent: number;
   tm: number;
