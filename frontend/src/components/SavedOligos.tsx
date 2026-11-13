@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { parseOligo } from '../lib/format';
 import { forwardName, reverseName, roleOf, type OligoRole, type SavedOligo } from '../lib/savedOligos';
 import { Button, Segmented } from './ui';
@@ -132,6 +132,74 @@ function RoleTag({ role, onToggle }: { role: OligoRole; onToggle: () => void }) 
   );
 }
 
+export interface RenameNames {
+  name: string;
+  sequenceName?: string;
+  partnerName?: string;
+}
+
+type RenameFocus = 'name' | 'sequence' | 'partner';
+
+/** Inline rename in place of a saved entry: one name for an oligo, the
+ * pair's name and each primer's for a pair. Enter saves, Escape cancels. */
+function RenameForm({ o, focus, onSave, onCancel }: { o: SavedOligo; focus: RenameFocus; onSave: (n: RenameNames) => void; onCancel: () => void }) {
+  const [name, setName] = useState(o.name);
+  const [fwd, setFwd] = useState(o.sequenceName ?? '');
+  const [rev, setRev] = useState(o.partnerName ?? '');
+  const refs = { name: useRef<HTMLInputElement>(null), sequence: useRef<HTMLInputElement>(null), partner: useRef<HTMLInputElement>(null) };
+  useEffect(() => {
+    const el = (o.partner ? refs[focus] : refs.name).current;
+    el?.focus();
+    el?.select();
+    // Focus once, on open.
+  }, []);
+  const pair = name.trim();
+  const ok = !!pair;
+  const submit = () => ok && onSave(o.partner ? { name: pair, sequenceName: fwd.trim() || undefined, partnerName: rev.trim() || undefined } : { name: pair });
+  const keys = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      onCancel();
+    }
+  };
+  const field = 'h-7 w-full min-w-0 rounded-md border border-line-strong bg-surface px-2 text-[13px] text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none';
+  return (
+    <form
+      className="min-w-0 flex-1 px-4 py-2"
+      aria-label={`Rename ${o.name}`}
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
+    >
+      {o.partner ? (
+        <div className="grid grid-cols-[auto_1fr] items-center gap-x-2 gap-y-1.5">
+          <label className="text-[12px] text-ink-muted" htmlFor={`rn-${o.id}`}>
+            Pair
+          </label>
+          <input id={`rn-${o.id}`} ref={refs.name} value={name} onChange={(e) => setName(e.target.value)} onKeyDown={keys} maxLength={80} className={field} />
+          <label className="truncate font-mono text-[11px] text-ink-faint" htmlFor={`rn-f-${o.id}`} title={o.sequence}>
+            {parseOligo(o.sequence).dna.slice(0, 8)}…
+          </label>
+          <input id={`rn-f-${o.id}`} ref={refs.sequence} value={fwd} placeholder={pair ? forwardName(pair) : 'Forward primer'} onChange={(e) => setFwd(e.target.value)} onKeyDown={keys} maxLength={80} className={field} />
+          <label className="truncate font-mono text-[11px] text-ink-faint" htmlFor={`rn-r-${o.id}`} title={o.partner}>
+            {parseOligo(o.partner).dna.slice(0, 8)}…
+          </label>
+          <input id={`rn-r-${o.id}`} ref={refs.partner} value={rev} placeholder={pair ? reverseName(pair) : 'Reverse primer'} onChange={(e) => setRev(e.target.value)} onKeyDown={keys} maxLength={80} className={field} />
+        </div>
+      ) : (
+        <input ref={refs.name} value={name} onChange={(e) => setName(e.target.value)} onKeyDown={keys} maxLength={80} className={field} aria-label="Name" />
+      )}
+      <div className="mt-2 flex gap-2">
+        <Button variant="solid" type="submit" disabled={!ok}>
+          Rename
+        </Button>
+        <Button onClick={onCancel}>Cancel</Button>
+      </div>
+    </form>
+  );
+}
+
 /** A saved primer pair. Any click loads both primers; a primer row puts
  * that primer first (in the Sequence field). */
 function PairEntry({ o, partner, active, onOpen }: { o: SavedOligo; partner: string; active: boolean; onOpen: ListProps['onOpen'] }) {
@@ -141,12 +209,12 @@ function PairEntry({ o, partner, active, onOpen }: { o: SavedOligo; partner: str
   ];
   return (
     <div className="min-w-0 flex-1">
-      <button type="button" onClick={() => onOpen(o)} className="flex w-full items-baseline gap-2 px-4 pt-2 pb-1 text-left hover:bg-surface-2" aria-current={active || undefined} title="Load both primers">
+      <button type="button" data-rename="name" onClick={() => onOpen(o)} className="flex w-full items-baseline gap-2 px-4 pt-2 pb-1 text-left hover:bg-surface-2" aria-current={active || undefined} title="Load both primers">
         <span className="truncate text-[13px] font-medium text-ink">{o.name}</span>
         <span className="shrink-0 rounded-sm bg-surface-2 px-1 text-[10px] font-medium uppercase tracking-wide text-ink-muted">Pair</span>
       </button>
       {rows.map((r) => (
-        <button key={r.only} type="button" onClick={() => onOpen(o, r.only)} className="flex w-full items-baseline gap-2 px-4 py-0.5 text-left text-[12px] last:pb-2 hover:bg-surface-2" title={`Load ${r.name} with its partner`}>
+        <button key={r.only} type="button" data-rename={r.only} onClick={() => onOpen(o, r.only)} className="flex w-full items-baseline gap-2 px-4 py-0.5 text-left text-[12px] last:pb-2 hover:bg-surface-2" title={`Load ${r.name} with its partner`}>
           <span className="w-24 shrink-0 truncate text-ink-muted">{r.name}</span>
           <span className="min-w-0 flex-1 truncate text-ink-muted">
             <OligoText sequence={r.seq} />
@@ -167,12 +235,22 @@ interface ListProps {
   onDelete: (o: SavedOligo) => void;
   /** Switch a single oligo between primer and probe. */
   onRole: (o: SavedOligo, role: OligoRole) => void;
+  /** New names; for a pair, an empty primer name falls back to "<pair>-F/R". */
+  onRename: (o: SavedOligo, names: RenameNames) => void;
   undo: SavedOligo | null;
   onUndo: () => void;
 }
 
-/** The user's saved oligos: click one to load it, x to delete it. */
-export default function SavedOligos({ oligos, activeId, onOpen, onDelete, onRole, undo, onUndo }: ListProps) {
+/** The user's saved oligos: click one to load it, the pencil (or a right
+ * click) to rename it, x to delete it. */
+export default function SavedOligos({ oligos, activeId, onOpen, onDelete, onRole, onRename, undo, onUndo }: ListProps) {
+  const [renaming, setRenaming] = useState<{ id: string; focus: RenameFocus } | null>(null);
+  // Right click opens rename on the name under the pointer (a pair's primer row names that primer).
+  const contextRename = (e: MouseEvent, o: SavedOligo) => {
+    e.preventDefault();
+    const row = (e.target as HTMLElement).closest('[data-rename]')?.getAttribute('data-rename') as RenameFocus | null;
+    setRenaming({ id: o.id, focus: row ?? 'name' });
+  };
   return (
     <section aria-label="Saved oligos" className="rounded-md border border-line bg-surface">
       {oligos.length === 0 && !undo && <p className="px-4 py-3 text-[13px] text-ink-faint">Nothing saved yet. Type an oligo (add a partner to keep a primer pair) and press Save to keep it here, in this browser.</p>}
@@ -181,8 +259,18 @@ export default function SavedOligos({ oligos, activeId, onOpen, onDelete, onRole
           {oligos.map((o) => {
             const active = o.id === activeId;
             return (
-              <li key={o.id} className={`group flex items-start gap-2 pr-2 ${active ? 'bg-accent-subtle/60' : ''}`}>
-                {o.partner ? (
+              <li key={o.id} onContextMenu={(e) => renaming?.id !== o.id && contextRename(e, o)} className={`group flex items-start gap-2 pr-2 ${active ? 'bg-accent-subtle/60' : ''}`}>
+                {renaming?.id === o.id ? (
+                  <RenameForm
+                    o={o}
+                    focus={renaming.focus}
+                    onSave={(names) => {
+                      onRename(o, names);
+                      setRenaming(null);
+                    }}
+                    onCancel={() => setRenaming(null)}
+                  />
+                ) : o.partner ? (
                   <PairEntry o={o} partner={o.partner} active={active} onOpen={onOpen} />
                 ) : (
                   <button type="button" onClick={() => onOpen(o)} className="min-w-0 flex-1 px-4 py-2 text-left hover:bg-surface-2" aria-current={active || undefined} title="Load this oligo">
@@ -195,7 +283,21 @@ export default function SavedOligos({ oligos, activeId, onOpen, onDelete, onRole
                     </div>
                   </button>
                 )}
-                {!o.partner && (
+                {renaming?.id !== o.id && (
+                  <button
+                    type="button"
+                    onClick={() => setRenaming({ id: o.id, focus: 'name' })}
+                    aria-label={`Rename ${o.name}`}
+                    title="Rename (or right-click)"
+                    className="mt-2 inline-flex size-6 shrink-0 items-center justify-center rounded-md text-ink-faint hover:bg-surface-2 hover:text-ink"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M12 20h9" />
+                      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+                    </svg>
+                  </button>
+                )}
+                {!o.partner && renaming?.id !== o.id && (
                   <RoleTag role={roleOf(o)} onToggle={() => onRole(o, roleOf(o) === 'probe' ? 'primer' : 'probe')} />
                 )}
                 <button

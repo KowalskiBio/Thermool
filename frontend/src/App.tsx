@@ -8,7 +8,7 @@ import ConditionsBar from './components/ConditionsBar';
 import SettingsDialog, { type SettingsTab } from './components/SettingsDialog';
 import type { IdtEntry } from './components/IdtButton';
 import PropertiesTable from './components/PropertiesTable';
-import SavedOligos, { SaveOligoForm, type SaveRequest } from './components/SavedOligos';
+import SavedOligos, { SaveOligoForm, type RenameNames, type SaveRequest } from './components/SavedOligos';
 import ReportView from './components/Report';
 import SequenceField from './components/SequenceField';
 import StabilityPanel from './components/StabilityPanel';
@@ -151,6 +151,7 @@ export default function App() {
     setLoaded({ id: entry.id, swap: false });
   };
   const setRole = (o: SavedOligo, role: SavedOligo['role']) => setSaved((list) => list.map((x) => (x.id === o.id ? { ...x, role } : x)));
+  const renameSaved = (o: SavedOligo, names: RenameNames) => setSaved((list) => list.map((x) => (x.id === o.id ? { ...x, ...names } : x)));
   const deleteSaved = (o: SavedOligo) => {
     setUndo({ oligo: o, index: saved.findIndex((x) => x.id === o.id) });
     setSaved((list) => list.filter((x) => x.id !== o.id));
@@ -358,7 +359,7 @@ export default function App() {
           )}
           {savedOpen && (
             <div id="saved-oligos" className="-mt-2">
-              <SavedOligos oligos={saved} activeId={activeSaved?.id ?? null} onOpen={openSaved} onDelete={deleteSaved} onRole={setRole} undo={undo?.oligo ?? null} onUndo={undoDelete} />
+              <SavedOligos oligos={saved} activeId={activeSaved?.id ?? null} onOpen={openSaved} onDelete={deleteSaved} onRole={setRole} onRename={renameSaved} undo={undo?.oligo ?? null} onUndo={undoDelete} />
             </div>
           )}
           {showPartner && (
