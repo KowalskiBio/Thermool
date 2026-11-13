@@ -107,8 +107,8 @@ export function SaveOligoForm({ initialName, pair, onSave, onCancel }: SaveFormP
   );
 }
 
-/** A saved primer pair: the header loads both primers, each primer row
- * loads that primer on its own. */
+/** A saved primer pair. Any click loads both primers; a primer row puts
+ * that primer first (in the Sequence field). */
 function PairEntry({ o, partner, active, onOpen }: { o: SavedOligo; partner: string; active: boolean; onOpen: ListProps['onOpen'] }) {
   const rows = [
     { only: 'sequence' as const, name: o.sequenceName ?? forwardName(o.name), seq: o.sequence },
@@ -121,7 +121,7 @@ function PairEntry({ o, partner, active, onOpen }: { o: SavedOligo; partner: str
         <span className="shrink-0 rounded-sm bg-surface-2 px-1 text-[10px] font-medium uppercase tracking-wide text-ink-muted">Pair</span>
       </button>
       {rows.map((r) => (
-        <button key={r.only} type="button" onClick={() => onOpen(o, r.only)} className="flex w-full items-baseline gap-2 px-4 py-0.5 text-left text-[12px] last:pb-2 hover:bg-surface-2" title={`Load ${r.name} on its own`}>
+        <button key={r.only} type="button" onClick={() => onOpen(o, r.only)} className="flex w-full items-baseline gap-2 px-4 py-0.5 text-left text-[12px] last:pb-2 hover:bg-surface-2" title={`Load ${r.name} with its partner`}>
           <span className="w-24 shrink-0 truncate text-ink-muted">{r.name}</span>
           <span className="min-w-0 flex-1 truncate text-ink-muted">
             <OligoText sequence={r.seq} />
@@ -136,8 +136,9 @@ function PairEntry({ o, partner, active, onOpen }: { o: SavedOligo; partner: str
 interface ListProps {
   oligos: SavedOligo[];
   activeId: string | null;
-  /** Load the entry; `only` loads one primer of a pair on its own. */
-  onOpen: (o: SavedOligo, only?: 'sequence' | 'partner') => void;
+  /** Load the entry; for a pair, `first` says which primer goes in the
+   * Sequence field (the other always comes along as Partner). */
+  onOpen: (o: SavedOligo, first?: 'sequence' | 'partner') => void;
   onDelete: (o: SavedOligo) => void;
   undo: SavedOligo | null;
   onUndo: () => void;

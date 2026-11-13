@@ -120,7 +120,9 @@ export default function App() {
 
   const savePartner = showPartner && partner ? partnerText : undefined;
   const currentKey = oligo ? oligoKey(seqText, savePartner) : null;
-  const activeSaved = currentKey ? (saved.find((o) => oligoKey(o.sequence, o.partner) === currentKey) ?? null) : null;
+  // A pair loaded from its partner's row (primers swapped) is still that pair.
+  const swappedKey = oligo && savePartner ? oligoKey(savePartner, seqText) : null;
+  const activeSaved = currentKey ? (saved.find((o) => [currentKey, swappedKey].includes(oligoKey(o.sequence, o.partner))) ?? null) : null;
 
   const saveCurrent = (req: SaveRequest) => {
     const base = { id: newId(), name: req.name, sequence: seqText.trim(), savedAt: Date.now() };
@@ -143,10 +145,14 @@ export default function App() {
     });
     setUndo(null);
   };
-  const openSaved = (o: SavedOligo, only?: 'sequence' | 'partner') => {
-    setSeqText(only === 'partner' && o.partner ? o.partner : o.sequence);
-    if (o.partner && !only) {
-      setPartnerText(o.partner);
+  /** Load a saved entry. A pair always comes back with both primers, so
+   * both Tms show at once; `first: 'partner'` puts the partner primer in
+   * the Sequence field and the other primer in Partner. */
+  const openSaved = (o: SavedOligo, first?: 'sequence' | 'partner') => {
+    const swap = first === 'partner' && !!o.partner;
+    setSeqText(swap ? o.partner! : o.sequence);
+    if (o.partner) {
+      setPartnerText(swap ? o.sequence : o.partner);
       setShowPartner(true);
     } else {
       setShowPartner(false);
