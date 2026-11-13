@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "thermool",
+      "runtimeExecutable": "cargo",
+      "runtimeArgs": ["run", "--release"],
+      "port": 5070
+    },
+    {
+      "name": "thermool-alt",
+      "runtimeExecutable": "cargo",
+      "runtimeArgs": ["run", "--release"],
+      "env": { "THERMOOL_ADDR": "127.0.0.1:5072" },
+      "port": 5072,
+      "autoPort": false
+    }
+  ]
+}
