@@ -370,10 +370,6 @@ function OligoPage({ report, index, page, pages }: { report: Report; index: numb
         <Stat label="Length" value={String(p.length)} unit="nt" big />
         <Stat label="GC content" value={fmt(p.gc_percent, 1)} unit="%" big />
         <Stat label="MW" value={fmt(p.mw, 1)} unit="g/mol" big />
-        <Stat label="ΔH" value={fmt(p.dh, 1)} unit="kcal/mol" />
-        <Stat label="ΔS" value={fmt(p.ds, 1)} unit="cal/(mol·K)" />
-        <Stat label="ΔG37 duplex" value={fmt(p.dg37, 2)} unit="kcal/mol" />
-        <Stat label="LNA" value={String(p.lna_count)} />
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3">
@@ -524,38 +520,73 @@ function SummaryPage({ report, page, pages }: { report: Report; page: number; pa
       {(pairChecks.length > 0 || (probes.length > 0 && meanPrimerTm !== null)) && (
         <section className="report-avoid mb-5">
           <h3 className="mb-2 text-[12.5px] font-semibold text-ink">Tm matching</h3>
-          <ul className="space-y-1 text-[12px] text-ink">
-            {pairChecks.map((c) => (
-              <li key={c.pair} className="flex items-baseline gap-2">
-                <span className="w-40 shrink-0 truncate text-ink-muted">{c.pair}</span>
-                <span>
-                  {c.a.name} {fmt(c.a.props.tm, 1)} °C, {c.b.name} {fmt(c.b.props.tm, 1)} °C:{' '}
-                  <span className={`font-mono font-medium tabular-nums ${c.dTm > 2 ? 'text-warning' : 'text-success'}`}>ΔTm {fmt(c.dTm, 1)} °C</span>
-                  {c.a.idt?.tm != null && c.b.idt?.tm != null && (
-                    <span className="ml-2 text-idt">
-                      (IDT {fmt(c.a.idt.tm, 1)} / {fmt(c.b.idt.tm, 1)} °C, ΔTm <span className="font-mono tabular-nums">{fmt(Math.abs(c.a.idt.tm - c.b.idt.tm), 1)}</span>)
-                    </span>
-                  )}
-                </span>
-              </li>
-            ))}
-            {meanPrimerTm !== null &&
-              probes.map((e, k) => {
-                const d = e.props.tm - meanPrimerTm;
-                return (
-                  <li key={`p${k}`} className="flex items-baseline gap-2">
-                    <span className="w-40 shrink-0 truncate text-ink-muted">{e.name}</span>
-                    <span>
-                      Probe {fmt(e.props.tm, 1)} °C vs mean primer {fmt(meanPrimerTm, 1)} °C:{' '}
-                      <span className={`font-mono font-medium tabular-nums ${d >= 5 && d <= 10 ? 'text-success' : 'text-warning'}`}>
+          {pairChecks.length > 0 && (
+            <table className="mb-3 w-full border-collapse text-[11.5px]">
+              <thead className="border-b border-line-strong">
+                <tr>
+                  <th className={th}>Pair</th>
+                  <th className={th}>Oligo</th>
+                  <th className={`${th} text-right`}>Tm °C</th>
+                  <th className={`${th} text-right`}>ΔTm °C</th>
+                  {report.withIdt && <th className={`${th} text-right text-idt`}>IDT Tm °C</th>}
+                  {report.withIdt && <th className={`${th} text-right text-idt`}>IDT ΔTm °C</th>}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {pairChecks.map((c) => {
+                  const idtA = c.a.idt?.tm ?? null;
+                  const idtB = c.b.idt?.tm ?? null;
+                  const idtD = idtA !== null && idtB !== null ? Math.abs(idtA - idtB) : null;
+                  const oneLine = (x: ReactNode, y: ReactNode) => (
+                    <>
+                      <div>{x}</div>
+                      <div>{y}</div>
+                    </>
+                  );
+                  return (
+                    <tr key={c.pair} className="align-top">
+                      <td className="px-2 py-1.5 font-medium text-ink">{c.pair}</td>
+                      <td className="px-2 py-1.5 text-ink-muted">{oneLine(c.a.name, c.b.name)}</td>
+                      <td className={`${td} text-right`}>{oneLine(fmt(c.a.props.tm, 1), fmt(c.b.props.tm, 1))}</td>
+                      <td className={`${td} text-right align-middle font-medium ${c.dTm > 2 ? 'text-warning' : 'text-success'}`}>{fmt(c.dTm, 1)}</td>
+                      {report.withIdt && <td className={`${td} text-right text-idt`}>{oneLine(fmt(idtA, 1) ?? 'n/a', fmt(idtB, 1) ?? 'n/a')}</td>}
+                      {report.withIdt && <td className={`${td} text-right align-middle text-idt`}>{fmt(idtD, 1) ?? 'n/a'}</td>}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+          {meanPrimerTm !== null && probes.length > 0 && (
+            <table className="w-full border-collapse text-[11.5px]">
+              <thead className="border-b border-line-strong">
+                <tr>
+                  <th className={th}>Probe</th>
+                  <th className={`${th} text-right`}>Tm °C</th>
+                  <th className={`${th} text-right`}>Mean primer Tm °C</th>
+                  <th className={`${th} text-right`}>Probe minus primers °C</th>
+                  {report.withIdt && <th className={`${th} text-right text-idt`}>IDT Tm °C</th>}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {probes.map((e, k) => {
+                  const d = e.props.tm - meanPrimerTm;
+                  return (
+                    <tr key={k}>
+                      <td className="px-2 py-1.5 font-medium text-ink">{e.name}</td>
+                      <td className={`${td} text-right`}>{fmt(e.props.tm, 1)}</td>
+                      <td className={`${td} text-right`}>{fmt(meanPrimerTm, 1)}</td>
+                      <td className={`${td} text-right font-medium ${d >= 5 && d <= 10 ? 'text-success' : 'text-warning'}`}>
                         {d >= 0 ? '+' : ''}
-                        {fmt(d, 1)} °C
-                      </span>
-                    </span>
-                  </li>
-                );
-              })}
-          </ul>
+                        {fmt(d, 1)}
+                      </td>
+                      {report.withIdt && <td className={`${td} text-right text-idt`}>{fmt(e.idt?.tm ?? null, 1) ?? 'n/a'}</td>}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
           <p className="mt-1.5 text-[9.5px] text-ink-faint">Rules of thumb: primers in a pair within 2 °C of each other; a hydrolysis probe 5 to 10 °C above its primers.</p>
         </section>
       )}
