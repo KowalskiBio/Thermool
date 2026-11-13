@@ -86,6 +86,9 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [undo, setUndo] = useState<{ oligo: SavedOligo; index: number } | null>(null);
+  /** The saved entry the fields came from (`swap`: a pair opened from its
+   * partner's row), so edits can be written back to it with Update. */
+  const [loaded, setLoaded] = useState<{ id: string; swap: boolean } | null>(null);
 
   useEffect(() => {
     loadCredentials().then(setCreds, () => {});
@@ -126,6 +129,18 @@ export default function App() {
   const swappedKey = oligo && savePartner ? oligoKey(savePartner, seqText) : null;
   const activeSaved = currentKey ? (saved.find((o) => [currentKey, swappedKey].includes(oligoKey(o.sequence, o.partner))) ?? null) : null;
 
+  // Update: the fields were loaded from a saved entry and now differ from it.
+  // A single oligo compares (and saves) the sequence alone; a pair needs both.
+  const loadedEntry = loaded ? (saved.find((o) => o.id === loaded.id) ?? null) : null;
+  const matchesEntry = (o: SavedOligo) => (o.partner ? [currentKey, swappedKey].includes(oligoKey(o.sequence, o.partner)) : oligoKey(seqText) === oligoKey(o.sequence));
+  const canUpdate = !!loadedEntry && !!oligo && !matchesEntry(loadedEntry) && (!loadedEntry.partner || !!savePartner);
+  const updateLoaded = () => {
+    if (!loadedEntry || !loaded) return;
+    const [seq, part] = loaded.swap && savePartner ? [savePartner, seqText] : [seqText, savePartner];
+    setSaved((list) => list.map((x) => (x.id === loadedEntry.id ? { ...x, sequence: seq.trim(), ...(x.partner && part ? { partner: part.trim() } : {}), savedAt: Date.now() } : x)));
+    setSaving(false);
+  };
+
   const saveCurrent = (req: SaveRequest) => {
     const base = { id: newId(), name: req.name, sequence: seqText.trim(), savedAt: Date.now() };
     const entry: SavedOligo = req.kind === 'pair' && savePartner ? { ...base, sequenceName: req.sequenceName, partner: savePartner.trim(), partnerName: req.partnerName } : { ...base, role: req.kind === 'single' ? req.role : undefined };
@@ -133,6 +148,7 @@ export default function App() {
     setSaving(false);
     setSavedOpen(true);
     setUndo(null);
+    setLoaded({ id: entry.id, swap: false });
   };
   const setRole = (o: SavedOligo, role: SavedOligo['role']) => setSaved((list) => list.map((x) => (x.id === o.id ? { ...x, role } : x)));
   const deleteSaved = (o: SavedOligo) => {
@@ -161,6 +177,7 @@ export default function App() {
       setShowPartner(false);
     }
     setSaving(false);
+    setLoaded({ id: o.id, swap });
   };
 
   // Re-analyze shortly after typing stops; a newer request cancels the old one.
@@ -267,6 +284,11 @@ export default function App() {
             placeholder="Paste a DNA oligo, 5′ to 3′ (raw or FASTA). Lowercase or +N marks LNA, e.g. agGCtGttATggat"
             actions={
               <>
+                {canUpdate && loadedEntry && (
+                  <button type="button" className="font-medium text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent" onClick={updateLoaded} title={`Overwrite the saved ${loadedEntry.partner ? 'pair' : 'oligo'} "${loadedEntry.name}" with what is in the fields now`}>
+                    Update {loadedEntry.name}
+                  </button>
+                )}
                 {oligo &&
                   (activeSaved ? (
                     <span className="text-ink-faint" title="This oligo is in your saved list">
@@ -275,7 +297,7 @@ export default function App() {
                   ) : (
                     !saving && (
                       <button type="button" className="text-ink-muted underline decoration-line-strong underline-offset-2 hover:text-ink" onClick={() => setSaving(true)}>
-                        Save
+                        {canUpdate ? 'Save as new' : 'Save'}
                       </button>
                     )
                   ))}
@@ -306,7 +328,14 @@ export default function App() {
                   </button>
                 )}
                 {seqText && (
-                  <button type="button" className="text-ink-muted hover:text-ink" onClick={() => setSeqText('')}>
+                  <button
+                    type="button"
+                    className="text-ink-muted hover:text-ink"
+                    onClick={() => {
+                      setSeqText('');
+                      setLoaded(null);
+                    }}
+                  >
                     Clear
                   </button>
                 )}
