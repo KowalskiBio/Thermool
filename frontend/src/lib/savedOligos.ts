@@ -10,8 +10,14 @@ export interface SavedOligo {
   sequenceName?: string;
   partner?: string;
   partnerName?: string;
+  /** What a single oligo is for; a pair is always two primers. Missing reads as primer. */
+  role?: OligoRole;
   savedAt: number;
 }
+
+export type OligoRole = 'primer' | 'probe';
+
+export const roleOf = (o: SavedOligo): OligoRole => (o.partner ? 'primer' : (o.role ?? 'primer'));
 
 const KEY = 'thermool-saved-oligos';
 

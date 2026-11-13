@@ -9,6 +9,7 @@ import SettingsDialog, { type SettingsTab } from './components/SettingsDialog';
 import type { IdtEntry } from './components/IdtButton';
 import PropertiesTable from './components/PropertiesTable';
 import SavedOligos, { SaveOligoForm, type SaveRequest } from './components/SavedOligos';
+import ReportView from './components/Report';
 import SequenceField from './components/SequenceField';
 import StabilityPanel from './components/StabilityPanel';
 import StructurePanel from './components/StructurePanel';
@@ -83,6 +84,7 @@ export default function App() {
     }
   });
   const [saving, setSaving] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const [undo, setUndo] = useState<{ oligo: SavedOligo; index: number } | null>(null);
 
   useEffect(() => {
@@ -126,12 +128,13 @@ export default function App() {
 
   const saveCurrent = (req: SaveRequest) => {
     const base = { id: newId(), name: req.name, sequence: seqText.trim(), savedAt: Date.now() };
-    const entry: SavedOligo = req.kind === 'pair' && savePartner ? { ...base, sequenceName: req.sequenceName, partner: savePartner.trim(), partnerName: req.partnerName } : base;
+    const entry: SavedOligo = req.kind === 'pair' && savePartner ? { ...base, sequenceName: req.sequenceName, partner: savePartner.trim(), partnerName: req.partnerName } : { ...base, role: req.kind === 'single' ? req.role : undefined };
     setSaved((list) => [entry, ...list]);
     setSaving(false);
     setSavedOpen(true);
     setUndo(null);
   };
+  const setRole = (o: SavedOligo, role: SavedOligo['role']) => setSaved((list) => list.map((x) => (x.id === o.id ? { ...x, role } : x)));
   const deleteSaved = (o: SavedOligo) => {
     setUndo({ oligo: o, index: saved.findIndex((x) => x.id === o.id) });
     setSaved((list) => list.filter((x) => x.id !== o.id));
@@ -223,7 +226,8 @@ export default function App() {
   const nextTheme: Record<Theme, Theme> = { system: 'light', light: 'dark', dark: 'system' };
 
   return (
-    <div className="min-h-screen">
+    <>
+    <div className={`min-h-screen ${reportOpen ? 'print:hidden' : ''}`}>
       {/* Oligool-style floating bar: title, settings and IDT stay in reach while results scroll. */}
       <header className="relative z-40 mx-auto mt-2 max-w-5xl px-2 sm:sticky sm:top-2 sm:px-4">
         <div className="rounded-lg border border-line bg-base/92 px-4 py-3 shadow-sm backdrop-blur-md">
@@ -284,6 +288,11 @@ export default function App() {
                 >
                   Saved{saved.length ? ` (${saved.length})` : ''}
                 </button>
+                {saved.length > 0 && (
+                  <button type="button" className="text-ink-muted hover:text-ink" onClick={() => setReportOpen(true)} title="Build a printable A4 report from saved primers and probes">
+                    Report
+                  </button>
+                )}
                 {!seqText && (
                   <button
                     type="button"
@@ -320,7 +329,7 @@ export default function App() {
           )}
           {savedOpen && (
             <div id="saved-oligos" className="-mt-2">
-              <SavedOligos oligos={saved} activeId={activeSaved?.id ?? null} onOpen={openSaved} onDelete={deleteSaved} undo={undo?.oligo ?? null} onUndo={undoDelete} />
+              <SavedOligos oligos={saved} activeId={activeSaved?.id ?? null} onOpen={openSaved} onDelete={deleteSaved} onRole={setRole} undo={undo?.oligo ?? null} onUndo={undoDelete} />
             </div>
           )}
           {showPartner && (
@@ -404,6 +413,8 @@ export default function App() {
         onCredentialsSaved={setCreds}
       />
     </div>
+    {reportOpen && <ReportView saved={saved} conditions={conditions} engine={engine} onClose={() => setReportOpen(false)} />}
+    </>
   );
 }
 

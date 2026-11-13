@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { parseOligo } from '../lib/format';
-import { forwardName, reverseName, type SavedOligo } from '../lib/savedOligos';
+import { forwardName, reverseName, roleOf, type OligoRole, type SavedOligo } from '../lib/savedOligos';
 import { Button, Segmented } from './ui';
 
 /** Bases as one mono line, LNA in the accent colour. */
@@ -25,7 +25,7 @@ const inputClass =
   'h-7 min-w-0 flex-1 rounded-md border border-line-strong bg-surface px-2 text-[13px] text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none sm:max-w-xs';
 
 /** What the form saves: one oligo, or the oligo and its partner as a pair. */
-export type SaveRequest = { kind: 'single'; name: string } | { kind: 'pair'; name: string; sequenceName: string; partnerName: string };
+export type SaveRequest = { kind: 'single'; name: string; role: OligoRole } | { kind: 'pair'; name: string; sequenceName: string; partnerName: string };
 
 interface SaveFormProps {
   initialName: string;
@@ -41,6 +41,7 @@ export function SaveOligoForm({ initialName, pair, onSave, onCancel }: SaveFormP
   const [asPair, setAsPair] = useState(!!pair);
   const [name, setName] = useState(pair ? pair.name : initialName);
   const [single, setSingle] = useState(initialName);
+  const [role, setRole] = useState<OligoRole>('primer');
   // Empty primer names follow the pair name ("<pair>-F", "<pair>-R").
   const [fwd, setFwd] = useState(pair?.sequenceName ?? '');
   const [rev, setRev] = useState(pair?.partnerName ?? '');
@@ -52,7 +53,7 @@ export function SaveOligoForm({ initialName, pair, onSave, onCancel }: SaveFormP
   const ok = asPair ? !!pairName : !!single.trim();
   const submit = () => {
     if (!ok) return;
-    onSave(asPair ? { kind: 'pair', name: pairName, sequenceName: fwdName, partnerName: revName } : { kind: 'single', name: single.trim() });
+    onSave(asPair ? { kind: 'pair', name: pairName, sequenceName: fwdName, partnerName: revName } : { kind: 'single', name: single.trim(), role });
   };
   const esc = (e: KeyboardEvent) => e.key === 'Escape' && onCancel();
   return (
@@ -95,6 +96,15 @@ export function SaveOligoForm({ initialName, pair, onSave, onCancel }: SaveFormP
             Name
           </label>
           <input id="save-name" ref={input} value={single} onChange={(e) => setSingle(e.target.value)} onKeyDown={esc} maxLength={80} className={inputClass} />
+          <Segmented
+            label="Role"
+            value={role}
+            onChange={setRole}
+            options={[
+              { value: 'primer', label: 'Primer' },
+              { value: 'probe', label: 'Probe' },
+            ]}
+          />
         </div>
       )}
       <div className="flex gap-2">
@@ -104,6 +114,21 @@ export function SaveOligoForm({ initialName, pair, onSave, onCancel }: SaveFormP
         <Button onClick={onCancel}>Cancel</Button>
       </div>
     </form>
+  );
+}
+
+/** Primer or probe; click to switch. */
+function RoleTag({ role, onToggle }: { role: OligoRole; onToggle: () => void }) {
+  const probe = role === 'probe';
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      title={`Marked as ${role} (click to make it a ${probe ? 'primer' : 'probe'})`}
+      className={`mt-2.5 shrink-0 rounded-sm px-1.5 text-[10px] font-medium uppercase tracking-wide ${probe ? 'bg-idt-subtle text-idt' : 'bg-surface-2 text-ink-muted hover:text-ink'}`}
+    >
+      {role}
+    </button>
   );
 }
 
@@ -140,12 +165,14 @@ interface ListProps {
    * Sequence field (the other always comes along as Partner). */
   onOpen: (o: SavedOligo, first?: 'sequence' | 'partner') => void;
   onDelete: (o: SavedOligo) => void;
+  /** Switch a single oligo between primer and probe. */
+  onRole: (o: SavedOligo, role: OligoRole) => void;
   undo: SavedOligo | null;
   onUndo: () => void;
 }
 
 /** The user's saved oligos: click one to load it, x to delete it. */
-export default function SavedOligos({ oligos, activeId, onOpen, onDelete, undo, onUndo }: ListProps) {
+export default function SavedOligos({ oligos, activeId, onOpen, onDelete, onRole, undo, onUndo }: ListProps) {
   return (
     <section aria-label="Saved oligos" className="rounded-md border border-line bg-surface">
       {oligos.length === 0 && !undo && <p className="px-4 py-3 text-[13px] text-ink-faint">Nothing saved yet. Type an oligo (add a partner to keep a primer pair) and press Save to keep it here, in this browser.</p>}
@@ -167,6 +194,9 @@ export default function SavedOligos({ oligos, activeId, onOpen, onDelete, undo, 
                       <OligoText sequence={o.sequence} />
                     </div>
                   </button>
+                )}
+                {!o.partner && (
+                  <RoleTag role={roleOf(o)} onToggle={() => onRole(o, roleOf(o) === 'probe' ? 'primer' : 'probe')} />
                 )}
                 <button
                   type="button"

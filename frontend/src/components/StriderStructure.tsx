@@ -36,6 +36,10 @@ interface Props {
   fallback: ReactNode;
   /** Name of the tab the figure opens in when clicked. */
   title?: string;
+  /** Cap on the drawn height, px (default 280). */
+  maxHeight?: number;
+  /** Light label colours whatever the app theme (for the printed report). */
+  forceLight?: boolean;
 }
 
 const BACKBONE = '#8c8c8c';
@@ -249,7 +253,7 @@ function buildFigure(sequence: string, structure: string, nick: number | undefin
   return { seq, coords: xy, backbone: layout.backbone, rungs: layout.rungs, crossing: layout.crossing, labels, box: { x: minX * S, y: -maxY * S, w: (maxX - minX) * S, h: (maxY - minY) * S } };
 }
 
-export default function StriderStructure({ sequence, structure, nick, strandNames, fallback, title = 'Secondary structure', colorBy = 'base', palette = DEFAULT_PALETTE }: Props) {
+export default function StriderStructure({ sequence, structure, nick, strandNames, fallback, title = 'Secondary structure', colorBy = 'base', palette = DEFAULT_PALETTE, maxHeight = 280, forceLight = false }: Props) {
   const elements = useMemo(() => (colorBy === 'structure' ? elementTypes(structure.replace(/[&+]/g, ''), nick) : null), [colorBy, structure, nick]);
   const dark = useSyncExternalStore(subscribeTheme, isDark, () => false);
   const figure = useMemo(() => {
@@ -261,7 +265,7 @@ export default function StriderStructure({ sequence, structure, nick, strandName
   }, [sequence, structure, nick, strandNames]);
 
   if (!figure) return <>{fallback}</>;
-  const theme = dark ? THEME.dark : THEME.light;
+  const theme = dark && !forceLight ? THEME.dark : THEME.light;
   const fillAt = (i: number) => (elements?.[i] ? palette.elements[elements[i]] : baseColor(palette, figure.seq[i]));
   const X = (p: Pt) => p[0] * S;
   const Y = (p: Pt) => -p[1] * S;
@@ -272,7 +276,7 @@ export default function StriderStructure({ sequence, structure, nick, strandName
     <svg
       viewBox={`${figure.box.x} ${figure.box.y} ${figure.box.w} ${figure.box.h}`}
       width="100%"
-      style={{ maxHeight: '280px' }}
+      style={{ maxHeight: `${maxHeight}px` }}
       preserveAspectRatio="xMidYMid meet"
       className="cursor-zoom-in"
       role="button"
