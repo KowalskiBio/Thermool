@@ -3,7 +3,7 @@ import type { Engine, StructureCandidate } from '../lib/api';
 import type { Conditions } from '../lib/conditions';
 import { dgLevel, fmt, fmtTm, LEVEL_TEXT, parseOligo } from '../lib/format';
 import type { IdtCredentials } from '../lib/idt';
-import { buildReport, crossOf, idtCallCount, MAX_CROSS, reportOligos, top, type IdtFold, type Report, type ReportEntry } from '../lib/report';
+import { buildReport, crossOf, idtCalls, MAX_CROSS, reportOligos, top, type IdtFold, type Report, type ReportEntry } from '../lib/report';
 import { forwardName, reverseName, roleOf, type SavedOligo } from '../lib/savedOligos';
 import DuplexSvg from './DuplexSvg';
 import StriderStructure from './StriderStructure';
@@ -121,7 +121,7 @@ export default function ReportView({ saved, conditions, engine, idtCredentials, 
               <label className="mx-5 mb-3 flex cursor-pointer items-start gap-2.5 text-[12px] text-ink-muted">
                 <input type="checkbox" className="mt-0.5 accent-[var(--accent-solid)]" checked={withIdt} onChange={(e) => setWithIdt(e.target.checked)} disabled={phase === 'loading'} />
                 <span>
-                  <span className="font-medium text-idt">Add IDT OligoAnalyzer values</span> beside Strider&apos;s: Tm, hairpin, self-dimer and each pair&apos;s heterodimer ({idtCallCount(reportOligos(chosen))} IDT calls).
+                  <span className="font-medium text-idt">Add IDT OligoAnalyzer values</span> beside Strider&apos;s: Tm, hairpin, self-dimer and each pair&apos;s heterodimer ({idtSummary(idtCalls(reportOligos(chosen), conditions))}).
                 </span>
               </label>
             ) : (
@@ -642,6 +642,13 @@ function SummaryPage({ report, page, pages }: { report: Report; page: number; pa
       </section>
     </Sheet>
   );
+}
+
+/** "12 IDT calls", "12 values, 9 already fetched (3 IDT calls)". */
+function idtSummary({ total, cached }: { total: number; cached: number }): string {
+  if (cached === 0) return `${total} IDT call${total === 1 ? '' : 's'}`;
+  const calls = total - cached;
+  return `${total} values, ${cached} already fetched: ${calls === 0 ? 'no IDT calls' : `${calls} IDT call${calls === 1 ? '' : 's'}`}`;
 }
 
 /** Second line of a summary cell: IDT's value, nothing without IDT. */

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { analyze, ApiError, type AnalyzeResponse, type Engine, type EquilibriumSplit, type IdtKind } from './lib/api';
-import { conditionsKey, loadConditions, saveConditions, type Conditions } from './lib/conditions';
+import { loadConditions, saveConditions, type Conditions } from './lib/conditions';
 import { parseOligo } from './lib/format';
 import { loadSavedOligos, newId, oligoKey, storeSavedOligos, suggestName, suggestPairNames, type SavedOligo } from './lib/savedOligos';
-import { EMPTY_CREDENTIALS, hasCredentials, loadCredentials, runIdt, type IdtCredentials } from './lib/idt';
+import { EMPTY_CREDENTIALS, hasCredentials, loadCredentials, type IdtCredentials } from './lib/idt';
+import { cachedIdt, idtKey, runIdtCached } from './lib/idtCache';
 import ConditionsBar from './components/ConditionsBar';
 import SettingsDialog, { type SettingsTab } from './components/SettingsDialog';
 import type { IdtEntry } from './components/IdtButton';
@@ -58,7 +59,6 @@ function loadEquilibriumSplit(): EquilibriumSplit {
   }
 }
 
-const idtKey = (kind: IdtKind, c: Conditions, seq: string, partner?: string) => `${kind}|${conditionsKey(c)}|${seq}|${partner ?? ''}`;
 
 export default function App() {
   const [theme, setTheme] = useTheme();
@@ -214,7 +214,17 @@ export default function App() {
 
   const connected = hasCredentials(creds);
 
-  const getIdt = useCallback((kind: IdtKind, seq: string, p?: string) => (result ? idt[idtKey(kind, result.conditions, seq, p)] : undefined), [idt, result]);
+  // IDT answers asked before (here or by a report) show without asking again.
+  const getIdt = useCallback(
+    (kind: IdtKind, seq: string, p?: string): IdtEntry | undefined => {
+      if (!result) return undefined;
+      const live = idt[idtKey(kind, result.conditions, seq, p)];
+      if (live) return live;
+      const raw = cachedIdt(kind, result.conditions, seq, p);
+      return raw === undefined ? undefined : { status: 'done', raw };
+    },
+    [idt, result],
+  );
 
   /** Runs one analysis on IDT, under the conditions the shown result used. */
   const requestIdt = (kind: IdtKind) => {
@@ -233,7 +243,7 @@ export default function App() {
     for (const [seq, second] of jobs) {
       const key = idtKey(kind, c, seq, second);
       setIdt((m) => ({ ...m, [key]: { status: 'loading' } }));
-      runIdt(creds, kind, seq, c, second).then(
+      runIdtCached(creds, kind, seq, c, second).then(
         (raw) => setIdt((m) => ({ ...m, [key]: { status: 'done', raw } })),
         (e) => setIdt((m) => ({ ...m, [key]: { status: 'error', error: e instanceof Error ? e.message : String(e) } })),
       );

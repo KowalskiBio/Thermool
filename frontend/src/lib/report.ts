@@ -1,7 +1,8 @@
 import { analyze, type DualStructure, type Engine, type FullStructureAnalysis, type Properties, type StructureCandidate } from './api';
 import type { Conditions } from './conditions';
 import { parseOligo } from './format';
-import { runIdt, type IdtCredentials } from './idt';
+import type { IdtCredentials } from './idt';
+import { cachedIdt, runIdtCached } from './idtCache';
 import { readAnalyze, readStructures } from './idtResult';
 import { forwardName, reverseName, roleOf, type OligoRole, type SavedOligo } from './savedOligos';
 
@@ -57,9 +58,19 @@ export interface Report {
   idtErrors: string[];
 }
 
-/** IDT calls a report makes: Tm, hairpin and self-dimer per oligo, plus
- * one heterodimer per primer pair (not the full cross matrix). */
-export const idtCallCount = (oligos: ReportOligo[]) => oligos.length * 3 + oligos.filter((o, i) => o.partnerIndex !== undefined && o.partnerIndex > i).length;
+/** IDT questions a report asks: Tm, hairpin and self-dimer per oligo, plus
+ * one heterodimer per primer pair (not the full cross matrix). `cached`
+ * of them are already answered in this browser and cost no IDT call. */
+export function idtCalls(oligos: ReportOligo[], c: Conditions): { total: number; cached: number } {
+  const dna = oligos.map((o) => parseOligo(o.text).dna);
+  const asks: boolean[] = [];
+  oligos.forEach((o, i) => {
+    asks.push(cachedIdt('analyze', c, o.notation) !== undefined, cachedIdt('hairpin', c, dna[i]) !== undefined, cachedIdt('self_dimer', c, dna[i]) !== undefined);
+    const j = o.partnerIndex;
+    if (j !== undefined && j > i) asks.push(cachedIdt('hetero_dimer', c, dna[i], dna[j]) !== undefined || cachedIdt('hetero_dimer', c, dna[j], dna[i]) !== undefined);
+  });
+  return { total: asks.length, cached: asks.filter(Boolean).length };
+}
 
 const bestFold = (raw: unknown, seq: string, partner?: string): IdtFold | null => {
   const b = readStructures(raw, seq, partner)[0];
@@ -124,13 +135,13 @@ export async function buildReport(oligos: ReportOligo[], conditions: Conditions,
     : [
         ...oligos.flatMap((o, i) => [
           idtJob(async () => {
-            idtValues[i].tm = readAnalyze(await runIdt(idt, 'analyze', o.notation, conditions)).tm;
+            idtValues[i].tm = readAnalyze(await runIdtCached(idt, 'analyze', o.notation, conditions)).tm;
           }),
           idtJob(async () => {
-            idtValues[i].hairpin = bestFold(await runIdt(idt, 'hairpin', dna[i], conditions), dna[i]);
+            idtValues[i].hairpin = bestFold(await runIdtCached(idt, 'hairpin', dna[i], conditions), dna[i]);
           }),
           idtJob(async () => {
-            idtValues[i].selfDimer = bestFold(await runIdt(idt, 'self_dimer', dna[i], conditions), dna[i], dna[i]);
+            idtValues[i].selfDimer = bestFold(await runIdtCached(idt, 'self_dimer', dna[i], conditions), dna[i], dna[i]);
           }),
         ]),
         ...oligos.flatMap((o, i) =>
@@ -138,7 +149,9 @@ export async function buildReport(oligos: ReportOligo[], conditions: Conditions,
             ? [
                 idtJob(async () => {
                   const j = o.partnerIndex!;
-                  const fold = bestFold(await runIdt(idt, 'hetero_dimer', dna[i], conditions, dna[j]), dna[i], dna[j]);
+                  // The same duplex asked the other way round (from the app) has the same dG.
+                  const swapped = cachedIdt('hetero_dimer', conditions, dna[j], dna[i]);
+                  const fold = swapped !== undefined ? bestFold(swapped, dna[j], dna[i]) : bestFold(await runIdtCached(idt, 'hetero_dimer', dna[i], conditions, dna[j]), dna[i], dna[j]);
                   idtValues[i].partner = fold;
                   idtValues[j].partner = fold;
                 }),
