@@ -18,6 +18,9 @@ interface Props {
   getIdt: (kind: IdtKind, seq: string, partner?: string) => IdtEntry | undefined;
   onIdt: (kind: IdtKind) => void;
   idtConnected: boolean;
+  /** Shown instead of "Oligo" / "Partner" when the strands have names. */
+  oligoName?: string;
+  partnerName?: string;
   onAddPartner: () => void;
 }
 
@@ -37,7 +40,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'hetero_dimer', label: 'Heterodimer' },
 ];
 
-export default function StructurePanel({ result, getIdt, onIdt, idtConnected, onAddPartner }: Props) {
+export default function StructurePanel({ result, getIdt, onIdt, idtConnected, oligoName, partnerName, onAddPartner }: Props) {
   const [tab, setTab] = useState<Tab>('hairpin');
   const [model, setModel] = useState<Model>('with_bulge');
   const [view, setView] = useState<DimerView>('duplex');
@@ -66,12 +69,12 @@ export default function StructurePanel({ result, getIdt, onIdt, idtConnected, on
   let sections: Section[] = [];
   if (tab === 'hairpin' || tab === 'self_dimer') {
     const pick = (s: AnalyzeResponse['structures']) => (tab === 'hairpin' ? s.hairpin : s.homodimer);
-    sections.push({ title: 'Oligo', seq1: oligo, seq2: tab === 'self_dimer' ? oligo : undefined, structure: pick(result.structures), idt: getIdt(tab, oligo) });
+    sections.push({ title: oligoName ?? 'Oligo', seq1: oligo, seq2: tab === 'self_dimer' ? oligo : undefined, structure: pick(result.structures), idt: getIdt(tab, oligo) });
     if (partner && result.partner_structures) {
-      sections.push({ title: 'Partner', seq1: partner, seq2: tab === 'self_dimer' ? partner : undefined, structure: pick(result.partner_structures), idt: getIdt(tab, partner) });
+      sections.push({ title: partnerName ?? 'Partner', seq1: partner, seq2: tab === 'self_dimer' ? partner : undefined, structure: pick(result.partner_structures), idt: getIdt(tab, partner) });
     }
   } else if (partner && result.structures.heterodimer) {
-    sections = [{ title: 'Oligo (O) × Partner (P)', seq1: oligo, seq2: partner, names: pairNames, structure: result.structures.heterodimer, idt: getIdt('hetero_dimer', oligo, partner) }];
+    sections = [{ title: `${oligoName ?? 'Oligo'} (O) × ${partnerName ?? 'Partner'} (P)`, seq1: oligo, seq2: partner, names: pairNames, structure: result.structures.heterodimer, idt: getIdt('hetero_dimer', oligo, partner) }];
   }
 
   const dimer = tab !== 'hairpin';
@@ -128,8 +131,8 @@ export default function StructurePanel({ result, getIdt, onIdt, idtConnected, on
         <>
           <IdtErrors entries={idtEntries} />
           <ColorLegend colorBy={colorBy} dimer={dimer} palette={palette} onChange={setPalette} onReset={customised ? resetPalette : undefined} />
-          {sections.map((s) => (
-            <StrandSection key={s.title} section={s} model={model} dimer={dimer} view={view} colorBy={colorBy} palette={palette} />
+          {sections.map((s, i) => (
+            <StrandSection key={i} section={s} model={model} dimer={dimer} view={view} colorBy={colorBy} palette={palette} />
           ))}
           <p className="mt-4 text-[12px] leading-relaxed text-ink-faint">
             {dimer

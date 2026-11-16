@@ -3,7 +3,7 @@ import { analyze, ApiError, type AnalyzeResponse, type Engine, type EquilibriumS
 import { loadConditions, saveConditions, type Conditions } from './lib/conditions';
 import { parseOligo } from './lib/format';
 import { parsePrimeroolSession, toSavedOligos } from './lib/primerool';
-import { loadSavedOligos, newId, oligoKey, storeSavedOligos, suggestName, suggestPairNames, type SavedOligo } from './lib/savedOligos';
+import { fastaHeader, forwardName, loadSavedOligos, newId, oligoKey, reverseName, storeSavedOligos, suggestName, suggestPairNames, type SavedOligo } from './lib/savedOligos';
 import { EMPTY_CREDENTIALS, hasCredentials, loadCredentials, type IdtCredentials } from './lib/idt';
 import { cachedIdt, idtKey, runIdtCached } from './lib/idtCache';
 import ConditionsBar from './components/ConditionsBar';
@@ -133,6 +133,21 @@ export default function App() {
   // A pair loaded from its partner's row (primers swapped) is still that pair.
   const swappedKey = oligo && savePartner ? oligoKey(savePartner, seqText) : null;
   const activeSaved = currentKey ? (saved.find((o) => [currentKey, swappedKey].includes(oligoKey(o.sequence, o.partner))) ?? null) : null;
+
+  // Names to show instead of "Oligo" / "Partner": a FASTA header in the
+  // field, else the saved pair's primer names (either way round), else the
+  // name of a saved single oligo with the same bases.
+  const savedName = (text: string) => {
+    const k = oligoKey(text);
+    return saved.find((o) => !o.partner && oligoKey(o.sequence) === k)?.name;
+  };
+  const pairNames = (() => {
+    if (!activeSaved?.partner || !savePartner) return [undefined, undefined];
+    const names = [activeSaved.sequenceName ?? forwardName(activeSaved.name), activeSaved.partnerName ?? reverseName(activeSaved.name)];
+    return oligoKey(activeSaved.sequence, activeSaved.partner) === currentKey ? names : names.reverse();
+  })();
+  const oligoName = (oligo && (fastaHeader(seqText) ?? pairNames[0] ?? savedName(seqText))) || undefined;
+  const partnerName = (partner && (fastaHeader(partnerText) ?? pairNames[1] ?? savedName(partnerText))) || undefined;
 
   // Update: the fields were loaded from a saved entry and now differ from it.
   // A single oligo compares (and saves) the sequence alone; a pair needs both.
@@ -495,8 +510,8 @@ export default function App() {
               {loading && <Spinner className="absolute -top-5 right-0 text-ink-faint" />}
               <PropertiesTable
                 strands={[
-                  { label: 'Oligo', props: data.oligo, idt: getIdt('analyze', data.oligo.notation) },
-                  ...(data.partner ? [{ label: 'Partner', props: data.partner, idt: getIdt('analyze', data.partner.notation) }] : []),
+                  { label: oligoName ?? 'Oligo', props: data.oligo, idt: getIdt('analyze', data.oligo.notation) },
+                  ...(data.partner ? [{ label: partnerName ?? 'Partner', props: data.partner, idt: getIdt('analyze', data.partner.notation) }] : []),
                 ]}
                 onIdt={() => requestIdt('analyze')}
                 idtConnected={connected}
@@ -508,9 +523,11 @@ export default function App() {
               conditions={result.conditions}
               engine={engine}
               split={equilibriumSplit}
+              oligoName={oligoName}
+              partnerName={partnerName}
               onAddPartner={() => setShowPartner(true)}
             />
-            <StructurePanel result={data} getIdt={getIdt} onIdt={requestIdt} idtConnected={connected} onAddPartner={() => setShowPartner(true)} />
+            <StructurePanel result={data} oligoName={oligoName} partnerName={partnerName} getIdt={getIdt} onIdt={requestIdt} idtConnected={connected} onAddPartner={() => setShowPartner(true)} />
           </div>
         ) : (
           !error && (

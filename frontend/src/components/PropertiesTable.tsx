@@ -35,10 +35,10 @@ export default function PropertiesTable({ strands, onIdt, idtConnected }: Props)
         <IdtButton state={state} onClick={onIdt} connected={idtConnected} />
       </div>
       <div className="divide-y divide-line rounded-md border border-line bg-surface">
-        {strands.map((s) => {
+        {strands.map((s, i) => {
           const idt = s.idt?.status === 'done' ? readAnalyze(s.idt.raw) : null;
           return (
-            <div key={s.label} className="px-5 py-4">
+            <div key={i} className="px-5 py-4">
               {strands.length > 1 && <div className="mb-2 text-[12px] font-medium text-ink-muted">{s.label}</div>}
               <div className="grid grid-cols-3 gap-4">
                 {STATS.map((st) => {
@@ -74,8 +74,8 @@ export default function PropertiesTable({ strands, onIdt, idtConnected }: Props)
         })}
       </div>
       <IdtErrors entries={entries} />
-      {strands.map((s) =>
-        s.idt?.status === 'done' && Object.values(readAnalyze(s.idt.raw)).every((v) => v === null) ? <Unreadable key={s.label} raw={s.idt.raw} /> : null,
+      {strands.map((s, i) =>
+        s.idt?.status === 'done' && Object.values(readAnalyze(s.idt.raw)).every((v) => v === null) ? <Unreadable key={i} raw={s.idt.raw} /> : null,
       )}
     </section>
   );

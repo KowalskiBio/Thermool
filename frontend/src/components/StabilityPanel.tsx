@@ -9,6 +9,9 @@ interface Props {
   conditions: Conditions;
   engine: Engine;
   split: EquilibriumSplit;
+  /** Shown instead of "Oligo" / "Partner" when the strands have names. */
+  oligoName?: string;
+  partnerName?: string;
   onAddPartner: () => void;
 }
 
@@ -78,7 +81,7 @@ function CompetitionStrip({ c, split }: { c: Competition; split: EquilibriumSpli
  * separately from the main analysis (it is the expensive part) with a
  * debounce and a stale-response guard; the structure cards stay anchored
  * at their reference temperatures, like Oligool. */
-export default function StabilityPanel({ sequence, partner, conditions, engine, split, onAddPartner }: Props) {
+export default function StabilityPanel({ sequence, partner, conditions, engine, split, oligoName, partnerName, onAddPartner }: Props) {
   const [tempText, setTempText] = useState('25');
   const [data, setData] = useState<{ oligo: Competition; partner: Competition | null } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -139,12 +142,12 @@ export default function StabilityPanel({ sequence, partner, conditions, engine, 
       {data ? (
         <div className="space-y-4">
           <div>
-            <p className="mb-1.5 text-[12px] font-medium text-ink-muted">Oligo Stability</p>
+            <p className="mb-1.5 text-[12px] font-medium text-ink-muted">{oligoName ? `${oligoName} stability` : 'Oligo Stability'}</p>
             <CompetitionStrip c={data.oligo} split={split} />
           </div>
           {data.partner && (
             <div>
-              <p className="mb-1.5 text-[12px] font-medium text-ink-muted">Partner Stability</p>
+              <p className="mb-1.5 text-[12px] font-medium text-ink-muted">{partnerName ? `${partnerName} stability` : 'Partner Stability'}</p>
               <CompetitionStrip c={data.partner} split={split} />
             </div>
           )}
