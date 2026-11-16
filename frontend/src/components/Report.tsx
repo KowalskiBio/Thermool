@@ -4,13 +4,15 @@ import type { Conditions } from '../lib/conditions';
 import { dgLevel, fmt, fmtTm, LEVEL_TEXT, parseOligo } from '../lib/format';
 import type { IdtCredentials } from '../lib/idt';
 import { buildReport, crossOf, idtCalls, MAX_CROSS, reportOligos, top, type IdtFold, type Report, type ReportEntry } from '../lib/report';
-import { forwardName, reverseName, roleOf, type SavedOligo } from '../lib/savedOligos';
+import { forwardName, groupsOf, reverseName, roleOf, type SavedOligo } from '../lib/savedOligos';
 import DuplexSvg from './DuplexSvg';
 import StriderStructure from './StriderStructure';
 import { Button, Spinner } from './ui';
 
 interface Props {
   saved: SavedOligo[];
+  /** Start with only this imported set picked. */
+  group?: string;
   conditions: Conditions;
   engine: Engine;
   /** IDT credentials when connected; the report can then add IDT's values. */
@@ -24,8 +26,8 @@ const conditionsText = (c: Conditions) => `Oligo ${c.oligo_um} µM · Na⁺ ${c.
 
 /** Pick saved oligos, analyse them, then show print-ready A4 pages: one
  * per primer, one per probe, and a summary. Print saves it as a PDF. */
-export default function ReportView({ saved, conditions, engine, idtCredentials, onClose }: Props) {
-  const [picked, setPicked] = useState<Set<string>>(() => new Set(saved.map((o) => o.id)));
+export default function ReportView({ saved, group, conditions, engine, idtCredentials, onClose }: Props) {
+  const [picked, setPicked] = useState<Set<string>>(() => new Set(saved.filter((o) => !group || o.group === group).map((o) => o.id)));
   const [phase, setPhase] = useState<'pick' | 'loading' | 'ready'>('pick');
   const [progress, setProgress] = useState<[number, number]>([0, 0]);
   const [report, setReport] = useState<Report | null>(null);
@@ -89,7 +91,12 @@ export default function ReportView({ saved, conditions, engine, idtCredentials, 
                 <span>
                   {oligoCount} oligo{oligoCount === 1 ? '' : 's'} selected
                 </span>
-                <span className="flex gap-3">
+                <span className="flex flex-wrap justify-end gap-3">
+                  {groupsOf(saved).map((g) => (
+                    <button key={g} type="button" className="max-w-48 truncate hover:text-ink" title={`Pick only ${g}`} onClick={() => setPicked(new Set(saved.filter((o) => o.group === g).map((o) => o.id)))}>
+                      {g}
+                    </button>
+                  ))}
                   <button type="button" className="hover:text-ink" onClick={() => setPicked(new Set(saved.map((o) => o.id)))}>
                     All
                   </button>
@@ -109,6 +116,7 @@ export default function ReportView({ saved, conditions, engine, idtCredentials, 
                           <RoleChip role={o.partner ? 'pair' : roleOf(o)} />
                         </span>
                         <span className="block truncate text-[12px] text-ink-muted">{o.partner ? `${o.sequenceName ?? forwardName(o.name)} + ${o.partnerName ?? reverseName(o.name)}` : parseOligo(o.sequence).dna}</span>
+                        {o.note && <span className="block truncate text-[11px] text-ink-faint">{o.note}</span>}
                       </span>
                     </label>
                   </li>
@@ -354,6 +362,7 @@ function OligoPage({ report, index, page, pages }: { report: Report; index: numb
         </div>
         <h2 className="text-[24px] font-semibold leading-tight tracking-tight text-ink">{e.name}</h2>
         {partner && <p className="text-[12px] text-ink-muted">Partner: {partner.name}</p>}
+        {e.note && <p className="text-[12px] text-ink-faint">{e.note}</p>}
       </div>
 
       <div className="mb-4 rounded-md bg-surface-2 px-4 py-3">

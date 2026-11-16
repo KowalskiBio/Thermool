@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { analyze, ApiError, type AnalyzeResponse, type Engine, type EquilibriumSplit, type IdtKind } from './lib/api';
 import { loadConditions, saveConditions, type Conditions } from './lib/conditions';
 import { parseOligo } from './lib/format';
+import { parsePrimeroolSession, toSavedOligos } from './lib/primerool';
 import { loadSavedOligos, newId, oligoKey, storeSavedOligos, suggestName, suggestPairNames, type SavedOligo } from './lib/savedOligos';
 import { EMPTY_CREDENTIALS, hasCredentials, loadCredentials, type IdtCredentials } from './lib/idt';
 import { cachedIdt, idtKey, runIdtCached } from './lib/idtCache';
@@ -84,7 +85,11 @@ export default function App() {
     }
   });
   const [saving, setSaving] = useState(false);
-  const [reportOpen, setReportOpen] = useState(false);
+  /** Open report dialog; `group` preselects that imported set only. */
+  const [reportOpen, setReportOpen] = useState<{ group?: string } | null>(null);
+  /** What the last Primerool import did (or why it failed). */
+  const [imported, setImported] = useState<{ group?: string; added: number; existing: number; skipped: string[]; error?: string } | null>(null);
+  const importInput = useRef<HTMLInputElement>(null);
   const [undo, setUndo] = useState<{ oligo: SavedOligo; index: number } | null>(null);
   /** The saved entry the fields came from (`swap`: a pair opened from its
    * partner's row), so edits can be written back to it with Update. */
@@ -150,6 +155,22 @@ export default function App() {
     setUndo(null);
     setLoaded({ id: entry.id, swap: false });
   };
+  /** Reads a Primerool session and saves its primer pairs (and probes) as
+   * one group. Entries already saved (same bases and LNA) are not added twice. */
+  const importPrimerool = async (file: File) => {
+    try {
+      const imp = parsePrimeroolSession(await file.text());
+      const have = new Set(saved.flatMap((o) => [oligoKey(o.sequence, o.partner), ...(o.partner ? [oligoKey(o.partner, o.sequence)] : [])]));
+      const fresh = toSavedOligos(imp, imp.name).filter((o) => !have.has(oligoKey(o.sequence, o.partner)));
+      setSaved((list) => [...fresh, ...list]);
+      setImported({ group: imp.name, added: fresh.length, existing: imp.oligos.length - fresh.length, skipped: imp.skipped });
+      setSavedOpen(true);
+      setUndo(null);
+    } catch (e) {
+      setImported({ added: 0, existing: 0, skipped: [], error: e instanceof Error ? e.message : String(e) });
+    }
+  };
+
   const setRole = (o: SavedOligo, role: SavedOligo['role']) => setSaved((list) => list.map((x) => (x.id === o.id ? { ...x, role } : x)));
   const renameSaved = (o: SavedOligo, names: RenameNames) => setSaved((list) => list.map((x) => (x.id === o.id ? { ...x, ...names } : x)));
   const deleteSaved = (o: SavedOligo) => {
@@ -179,6 +200,14 @@ export default function App() {
     }
     setSaving(false);
     setLoaded({ id: o.id, swap });
+  };
+
+  // Stepping through an imported set: the loaded entry's group, in list order.
+  const groupList = loadedEntry?.group ? saved.filter((o) => o.group === loadedEntry.group) : [];
+  const groupAt = loadedEntry ? groupList.findIndex((o) => o.id === loadedEntry.id) : -1;
+  const step = (d: number) => {
+    const next = groupList[groupAt + d];
+    if (next) openSaved(next);
   };
 
   // Re-analyze shortly after typing stops; a newer request cancels the old one.
@@ -295,6 +324,19 @@ export default function App() {
             placeholder="Paste a DNA oligo, 5′ to 3′ (raw or FASTA). Lowercase or +N marks LNA, e.g. agGCtGttATggat"
             actions={
               <>
+                {groupList.length > 1 && groupAt >= 0 && (
+                  <span className="inline-flex items-center gap-1 text-ink-muted" title={`${loadedEntry!.group}: ${loadedEntry!.name}`}>
+                    <button type="button" className="rounded px-1 hover:bg-surface-2 hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent" onClick={() => step(-1)} disabled={groupAt === 0} aria-label="Previous in this set">
+                      ‹
+                    </button>
+                    <span className="tabular-nums">
+                      {groupAt + 1}/{groupList.length}
+                    </span>
+                    <button type="button" className="rounded px-1 hover:bg-surface-2 hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent" onClick={() => step(1)} disabled={groupAt === groupList.length - 1} aria-label="Next in this set">
+                      ›
+                    </button>
+                  </span>
+                )}
                 {canUpdate && loadedEntry && (
                   <button type="button" className="font-medium text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent" onClick={updateLoaded} title={`Overwrite the saved ${loadedEntry.partner ? 'pair' : 'oligo'} "${loadedEntry.name}" with what is in the fields now`}>
                     Update {loadedEntry.name}
@@ -321,8 +363,11 @@ export default function App() {
                 >
                   Saved{saved.length ? ` (${saved.length})` : ''}
                 </button>
+                <button type="button" className="text-ink-muted hover:text-ink" onClick={() => importInput.current?.click()} title="Import the primer pairs of a session saved by Primerool (*.primerool.json)">
+                  Import
+                </button>
                 {saved.length > 0 && (
-                  <button type="button" className="text-ink-muted hover:text-ink" onClick={() => setReportOpen(true)} title="Build a printable A4 report from saved primers and probes">
+                  <button type="button" className="text-ink-muted hover:text-ink" onClick={() => setReportOpen({})} title="Build a printable A4 report from saved primers and probes">
                     Report
                   </button>
                 )}
@@ -366,6 +411,56 @@ export default function App() {
               onSave={saveCurrent}
               onCancel={() => setSaving(false)}
             />
+          )}
+          <input
+            ref={importInput}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              if (f) importPrimerool(f);
+            }}
+          />
+          {imported && (
+            <div role={imported.error ? 'alert' : 'status'} className={`-mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-md px-3 py-2 text-[12px] ${imported.error ? 'bg-danger-subtle text-danger' : 'bg-accent-subtle/60 text-ink-muted'}`}>
+              <span className="min-w-0 flex-1">
+                {imported.error ?? (
+                  <>
+                    {imported.added > 0 ? (
+                      <>
+                        Imported {imported.added} {imported.added === 1 ? 'entry' : 'entries'} from <span className="font-medium text-ink">{imported.group}</span>.
+                      </>
+                    ) : (
+                      <>Nothing new in {imported.group}.</>
+                    )}
+                    {imported.existing > 0 && ` ${imported.existing} already saved.`}
+                    {imported.skipped.length > 0 && <span title={imported.skipped.join('\n')}> {imported.skipped.length} without primers skipped.</span>}
+                  </>
+                )}
+              </span>
+              {!imported.error && imported.group && saved.some((o) => o.group === imported.group) && (
+                <>
+                  <button
+                    type="button"
+                    className="font-medium text-accent hover:underline"
+                    onClick={() => {
+                      const first = saved.find((o) => o.group === imported.group);
+                      if (first) openSaved(first);
+                    }}
+                  >
+                    Go through them
+                  </button>
+                  <button type="button" className="font-medium text-accent hover:underline" onClick={() => setReportOpen({ group: imported.group })}>
+                    Report on all
+                  </button>
+                </>
+              )}
+              <button type="button" className="text-ink-faint hover:text-ink" onClick={() => setImported(null)} aria-label="Dismiss">
+                ×
+              </button>
+            </div>
           )}
           {savedOpen && (
             <div id="saved-oligos" className="-mt-2">
@@ -453,7 +548,7 @@ export default function App() {
         onCredentialsSaved={setCreds}
       />
     </div>
-    {reportOpen && <ReportView saved={saved} conditions={conditions} engine={engine} idtCredentials={connected ? creds : null} onClose={() => setReportOpen(false)} />}
+    {reportOpen && <ReportView saved={saved} group={reportOpen.group} conditions={conditions} engine={engine} idtCredentials={connected ? creds : null} onClose={() => setReportOpen(null)} />}
     </>
   );
 }

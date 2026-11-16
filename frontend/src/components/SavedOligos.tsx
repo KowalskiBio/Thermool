@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { Fragment, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { parseOligo } from '../lib/format';
 import { forwardName, reverseName, roleOf, type OligoRole, type SavedOligo } from '../lib/savedOligos';
 import { Button, Segmented } from './ui';
@@ -213,9 +213,14 @@ function PairEntry({ o, partner, active, onOpen }: { o: SavedOligo; partner: str
         <span className="truncate text-[13px] font-medium text-ink">{o.name}</span>
         <span className="shrink-0 rounded-sm bg-surface-2 px-1 text-[10px] font-medium uppercase tracking-wide text-ink-muted">Pair</span>
       </button>
+      {o.note && (
+        <div className="truncate px-4 pb-1 text-[11px] text-ink-faint" title={o.note}>
+          {o.note}
+        </div>
+      )}
       {rows.map((r) => (
         <button key={r.only} type="button" data-rename={r.only} onClick={() => onOpen(o, r.only)} className="flex w-full items-baseline gap-2 px-4 py-0.5 text-left text-[12px] last:pb-2 hover:bg-surface-2" title={`Load ${r.name} with its partner`}>
-          <span className="w-24 shrink-0 truncate text-ink-muted">{r.name}</span>
+          <span className="w-24 shrink-0 truncate text-ink-muted sm:w-44" title={r.name}>{r.name}</span>
           <span className="min-w-0 flex-1 truncate text-ink-muted">
             <OligoText sequence={r.seq} />
           </span>
@@ -245,6 +250,9 @@ interface ListProps {
  * click) to rename it, x to delete it. */
 export default function SavedOligos({ oligos, activeId, onOpen, onDelete, onRole, onRename, undo, onUndo }: ListProps) {
   const [renaming, setRenaming] = useState<{ id: string; focus: RenameFocus } | null>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  // Keep the loaded entry in view, e.g. while stepping through an imported set.
+  useEffect(() => listRef.current?.querySelector('[aria-current]')?.closest('li')?.scrollIntoView({ block: 'nearest' }), [activeId]);
   // Right click opens rename on the name under the pointer (a pair's primer row names that primer).
   const contextRename = (e: MouseEvent, o: SavedOligo) => {
     e.preventDefault();
@@ -253,13 +261,21 @@ export default function SavedOligos({ oligos, activeId, onOpen, onDelete, onRole
   };
   return (
     <section aria-label="Saved oligos" className="rounded-md border border-line bg-surface">
-      {oligos.length === 0 && !undo && <p className="px-4 py-3 text-[13px] text-ink-faint">Nothing saved yet. Type an oligo (add a partner to keep a primer pair) and press Save to keep it here, in this browser.</p>}
+      {oligos.length === 0 && !undo && <p className="px-4 py-3 text-[13px] text-ink-faint">Nothing saved yet. Type an oligo (add a partner to keep a primer pair) and press Save to keep it here, in this browser, or Import a Primerool session to add all its primer pairs at once.</p>}
       {oligos.length > 0 && (
-        <ul className="max-h-72 divide-y divide-line overflow-y-auto">
-          {oligos.map((o) => {
+        <ul ref={listRef} className="max-h-96 divide-y divide-line overflow-y-auto">
+          {oligos.map((o, i) => {
             const active = o.id === activeId;
+            const heading = o.group && o.group !== oligos[i - 1]?.group;
             return (
-              <li key={o.id} onContextMenu={(e) => renaming?.id !== o.id && contextRename(e, o)} className={`group flex items-start gap-2 pr-2 ${active ? 'bg-accent-subtle/60' : ''}`}>
+              <Fragment key={o.id}>
+              {heading && (
+                <li className="sticky top-0 z-10 flex items-baseline gap-2 bg-surface-2/95 px-4 py-1 text-[11px] font-medium text-ink-muted backdrop-blur">
+                  <span className="truncate">{o.group}</span>
+                  <span className="shrink-0 tabular-nums text-ink-faint">{oligos.filter((x) => x.group === o.group).length}</span>
+                </li>
+              )}
+              <li onContextMenu={(e) => renaming?.id !== o.id && contextRename(e, o)} className={`group flex items-start gap-2 pr-2 ${active ? 'bg-accent-subtle/60' : ''}`}>
                 {renaming?.id === o.id ? (
                   <RenameForm
                     o={o}
@@ -281,6 +297,7 @@ export default function SavedOligos({ oligos, activeId, onOpen, onDelete, onRole
                     <div className="truncate text-[12px] text-ink-muted">
                       <OligoText sequence={o.sequence} />
                     </div>
+                    {o.note && <div className="truncate text-[11px] text-ink-faint">{o.note}</div>}
                   </button>
                 )}
                 {renaming?.id !== o.id && (
@@ -312,6 +329,7 @@ export default function SavedOligos({ oligos, activeId, onOpen, onDelete, onRole
                   </svg>
                 </button>
               </li>
+              </Fragment>
             );
           })}
         </ul>

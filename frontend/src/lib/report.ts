@@ -17,6 +17,8 @@ export interface ReportOligo {
   /** The pair it belongs to, and the other primer's index in the list. */
   pair?: string;
   partnerIndex?: number;
+  /** The saved entry's note (e.g. SNP position and amplicon size). */
+  note?: string;
 }
 
 /** IDT's most stable structure; `null` when IDT found none. */
@@ -89,11 +91,11 @@ export function reportOligos(selected: SavedOligo[]): ReportOligo[] {
   for (const o of selected) {
     if (o.partner) {
       const i = primers.length;
-      primers.push(make(o.sequenceName ?? forwardName(o.name), o.sequence, 'primer', { pair: o.name, partnerIndex: i + 1 }));
-      primers.push(make(o.partnerName ?? reverseName(o.name), o.partner, 'primer', { pair: o.name, partnerIndex: i }));
+      primers.push(make(o.sequenceName ?? forwardName(o.name), o.sequence, 'primer', { pair: o.name, partnerIndex: i + 1, note: o.note }));
+      primers.push(make(o.partnerName ?? reverseName(o.name), o.partner, 'primer', { pair: o.name, partnerIndex: i, note: o.note }));
     } else {
       const role = roleOf(o);
-      (role === 'probe' ? probes : primers).push(make(o.name, o.sequence, role));
+      (role === 'probe' ? probes : primers).push(make(o.name, o.sequence, role, { note: o.note }));
     }
   }
   return [...primers, ...probes];

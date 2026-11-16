@@ -12,6 +12,11 @@ export interface SavedOligo {
   partnerName?: string;
   /** What a single oligo is for; a pair is always two primers. Missing reads as primer. */
   role?: OligoRole;
+  /** Entries imported together (e.g. one Primerool session) share a group,
+   * so they can be stepped through and reported on as a set. */
+  group?: string;
+  /** Free text kept with the entry, e.g. a SNP's position and amplicon size. */
+  note?: string;
   savedAt: number;
 }
 
@@ -85,6 +90,9 @@ export function suggestPairNames(sequence: string, partner: string, existing: Sa
 
 export const forwardName = (pair: string) => `${pair}-F`;
 export const reverseName = (pair: string) => `${pair}-R`;
+
+/** The group names in list order, each once. */
+export const groupsOf = (list: SavedOligo[]): string[] => [...new Set(list.flatMap((o) => (o.group ? [o.group] : [])))];
 
 export function newId(): string {
   try {
